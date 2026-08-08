@@ -1,0 +1,203 @@
+import type {
+  Actor,
+  CreateDealInput,
+  Deal,
+  DealStatus,
+  DisputeLog,
+  PaymentMethod,
+  RevisionEntry,
+  Transaction,
+} from './types'
+
+export const ESCALATABLE_STATUSES: DealStatus[] = [
+  'negotiation',
+  'contract_signing',
+  'contract_signed',
+  'payment_pending',
+  'payment_processing',
+  'paid',
+  'in_production',
+  'awaiting_acceptance',
+]
+
+export function generateDealId(): string {
+  return Math.random().toString(36).slice(2, 10)
+}
+
+function withStatus(deal: Deal, status: DealStatus): Deal {
+  return {
+    ...deal,
+    status,
+    statusHistory: [...deal.statusHistory, { status, at: new Date().toISOString() }],
+  }
+}
+
+function assertStatus(deal: Deal, expected: DealStatus): void {
+  if (deal.status !== expected) {
+    throw new Error(
+      `Недопустимый переход: сделка в статусе "${deal.status}", ожидался "${expected}"`,
+    )
+  }
+}
+
+function netAmount(deal: Deal, percent: number): number {
+  const gross = (deal.amount * percent) / 100
+  const commission = (gross * deal.commissionPercent) / 100
+  return gross - commission
+}
+
+export function createDeal(input: CreateDealInput): Deal {
+  const id = input.id ?? generateDealId()
+  return {
+    id,
+    slug: id,
+    furnitureMakerId: input.furnitureMakerId,
+    contactName: input.contactName ?? null,
+    contactPhone: input.contactPhone ?? null,
+    clientName: null,
+    clientPhone: null,
+    title: input.title,
+    amount: input.amount,
+    prepaymentPercent: input.prepaymentPercent,
+    finalPercent: input.finalPercent,
+    commissionPercent: input.commissionPercent,
+    category: input.category ?? null,
+    hasUpholstery: input.hasUpholstery ?? false,
+    widthCm: input.widthCm ?? null,
+    heightCm: input.heightCm ?? null,
+    depthCm: input.depthCm ?? null,
+    material: input.material ?? null,
+    finish: input.finish ?? null,
+    qualityTier: input.qualityTier ?? null,
+    hardwareTier: input.hardwareTier ?? null,
+    status: 'draft',
+    previousStatus: null,
+    frozen: false,
+    clientAccepted: false,
+    paymentMethod: null,
+    statusHistory: [{ status: 'draft', at: new Date().toISOString() }],
+  }
+}
+
+export function sendToClient(deal: Deal): Deal {
+  assertStatus(deal, 'draft')
+  return withStatus(deal, 'awaiting_client')
+}
+
+export function onboardClient(deal: Deal, name: string, phone: string): Deal {
+  assertStatus(deal, 'awaiting_client')
+  return withStatus({ ...deal, clientName: name, clientPhone: phone }, 'negotiation')
+}
+
+export function requestRevision(
+  deal: Deal,
+  field: string,
+  oldValue: string,
+  newValue: string,
+  comment: string,
+): { deal: Deal; revision: RevisionEntry } {
+  assertStatus(deal, 'negotiation')
+  const revision: RevisionEntry = {
+    dealId: deal.id,
+    field,
+    oldValue,
+    newValue,
+    comment,
+    at: new Date().toISOString(),
+  }
+  return { deal: { ...deal, clientAccepted: false }, revision }
+}
+
+export function clientAccepts(deal: Deal): Deal {
+  assertStatus(deal, 'negotiation')
+  return { ...deal, clientAccepted: true }
+}
+
+export function signByFurnitureMaker(deal: Deal, _code: string): Deal {
+  assertStatus(deal, 'negotiation')
+  if (!deal.clientAccepted) {
+    throw new Error('Мебельщик не может подписать: клиент ещё не принял условия')
+  }
+  return withStatus(deal, 'contract_signing')
+}
+
+export function signByClientSms(deal: Deal, _code: string): Deal {
+  assertStatus(deal, 'contract_signing')
+  return withStatus(withStatus(deal, 'contract_signed'), 'payment_pending')
+}
+
+export function submitPayment(deal: Deal, method: PaymentMethod): Deal {
+  assertStatus(deal, 'payment_pending')
+  return withStatus({ ...deal, paymentMethod: method }, 'payment_processing')
+}
+
+export function pay(deal: Deal): { deal: Deal; transaction: Transaction } {
+  assertStatus(deal, 'payment_processing')
+  const transaction: Transaction = {
+    dealId: deal.id,
+    type: 'prepayment',
+    amount: netAmount(deal, deal.prepaymentPercent),
+    status: 'paid',
+    paidAt: new Date().toISOString(),
+  }
+  const advanced = withStatus(withStatus(deal, 'paid'), 'in_production')
+  return { deal: advanced, transaction }
+}
+
+export function markProductionDone(deal: Deal): Deal {
+  assertStatus(deal, 'in_production')
+  return withStatus(deal, 'awaiting_acceptance')
+}
+
+export function signAct(deal: Deal): { deal: Deal; transaction: Transaction } {
+  assertStatus(deal, 'awaiting_acceptance')
+  const transaction: Transaction = {
+    dealId: deal.id,
+    type: 'final',
+    amount: netAmount(deal, deal.finalPercent),
+    status: 'paid',
+    paidAt: new Date().toISOString(),
+  }
+  const completed = withStatus(withStatus(deal, 'act_signed'), 'completed')
+  return { deal: completed, transaction }
+}
+
+export function callOperator(
+  deal: Deal,
+  openedBy: Actor,
+  reason: string,
+): { deal: Deal; dispute: DisputeLog } {
+  if (!ESCALATABLE_STATUSES.includes(deal.status)) {
+    throw new Error(`Эскалация недоступна на статусе "${deal.status}"`)
+  }
+  const dispute: DisputeLog = {
+    dealId: deal.id,
+    openedBy,
+    reason,
+    status: 'open',
+  }
+  const updated: Deal = {
+    ...withStatus(deal, 'dispute_open'),
+    previousStatus: deal.status,
+  }
+  return { deal: updated, dispute }
+}
+
+export function freezeDispute(deal: Deal): Deal {
+  assertStatus(deal, 'dispute_open')
+  return { ...deal, frozen: true }
+}
+
+export function initiateRefund(deal: Deal): Deal {
+  assertStatus(deal, 'dispute_open')
+  return withStatus(deal, 'cancelled_refunded')
+}
+
+export function resolveDispute(deal: Deal): Deal {
+  assertStatus(deal, 'dispute_open')
+  if (!deal.previousStatus) {
+    throw new Error('Нет статуса для возврата: previousStatus не задан')
+  }
+  const restored = withStatus({ ...deal, frozen: false }, deal.previousStatus)
+  return { ...restored, previousStatus: null }
+}

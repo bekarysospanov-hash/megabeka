@@ -1,0 +1,101 @@
+import { useState } from 'react'
+import { useParams } from 'react-router-dom'
+import { useDeal, useDealHistory, useDemoActions } from '../store/DemoProvider'
+import { StatusBadge } from '../components/StatusBadge'
+import { RevisionDiffList } from '../components/RevisionDiffList'
+import { TransactionList } from '../components/TransactionList'
+import { DisputePanel } from '../components/DisputePanel'
+import { MessageThread } from '../components/MessageThread'
+import { OrderSpecSummary } from '../components/OrderSpecSummary'
+import { BackLink } from '../components/BackLink'
+import { Button } from '@/components/ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { STATUS_LABELS, formatMoney } from '../domain/statusLabels'
+import type { DealStatus } from '../domain/types'
+
+// dispute_open и cancelled_refunded не включены: у них своя логика входа
+// (callOperator создаёт DisputeLog и previousStatus; initiateRefund требует dispute_open) —
+// ручной прыжок в эти статусы в обход неё ломает инварианты state-machine.
+const MANUAL_STATUSES = (Object.keys(STATUS_LABELS) as DealStatus[]).filter(
+  (status) => status !== 'dispute_open' && status !== 'cancelled_refunded',
+)
+
+export function OperatorDealDetail() {
+  const { id } = useParams<{ id: string }>()
+  const deal = useDeal(id)
+  const { revisions, transactions, disputes, messages } = useDealHistory(id)
+  const { freezeDispute, initiateRefund, resolveDispute, operatorSetStatus, addMessage } = useDemoActions()
+  const [manualStatus, setManualStatus] = useState<DealStatus | ''>('')
+
+  if (!deal) return <p className="text-sm text-muted-foreground">Сделка не найдена.</p>
+
+  return (
+    <div className="grid gap-6">
+      <BackLink to="/operator" label="Все сделки" />
+
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">{deal.title}</h1>
+          <div className="text-sm text-muted-foreground">
+            {formatMoney(deal.amount)}
+            {deal.clientName && ` · ${deal.clientName}`}
+            {deal.clientPhone && ` · ${deal.clientPhone}`}
+          </div>
+        </div>
+        <StatusBadge status={deal.status} />
+      </div>
+
+      <OrderSpecSummary deal={deal} />
+
+      <DisputePanel
+        deal={deal}
+        disputes={disputes}
+        onFreeze={() => freezeDispute(deal.id)}
+        onRefund={() => initiateRefund(deal.id)}
+        onResolve={() => resolveDispute(deal.id)}
+      />
+
+      <section>
+        <h2 className="mb-2 text-sm font-semibold">История правок</h2>
+        <RevisionDiffList revisions={revisions} />
+      </section>
+
+      <section>
+        <h2 className="mb-2 text-sm font-semibold">Выплаты</h2>
+        <TransactionList transactions={transactions} />
+      </section>
+
+      <section>
+        <h2 className="mb-2 text-sm font-semibold">Переписка</h2>
+        <MessageThread messages={messages} onSend={(text) => addMessage(deal.id, 'operator', text)} />
+      </section>
+
+      <section className="grid gap-2">
+        <h2 className="text-sm font-semibold">Вручную изменить статус</h2>
+        <div className="flex gap-2">
+          <Select value={manualStatus} onValueChange={(v) => setManualStatus(v as DealStatus)}>
+            <SelectTrigger className="w-fit min-w-56">
+              <SelectValue placeholder="Выберите статус" />
+            </SelectTrigger>
+            <SelectContent>
+              {MANUAL_STATUSES.map((status) => (
+                <SelectItem key={status} value={status}>
+                  {STATUS_LABELS[status]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            variant="outline"
+            disabled={!manualStatus}
+            onClick={() => {
+              if (manualStatus) operatorSetStatus(deal.id, manualStatus)
+            }}
+          >
+            Применить
+          </Button>
+        </div>
+      </section>
+    </div>
+  )
+}

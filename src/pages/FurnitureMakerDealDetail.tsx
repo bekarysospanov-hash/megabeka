@@ -1,0 +1,247 @@
+import { useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { useDeal, useDealHistory, useDemoActions, useDemoState } from '../store/DemoProvider'
+import { StatusBadge } from '../components/StatusBadge'
+import { RevisionDiffList } from '../components/RevisionDiffList'
+import { TransactionList } from '../components/TransactionList'
+import { DisputePanel } from '../components/DisputePanel'
+import { MessageThread } from '../components/MessageThread'
+import { DemoModeBanner } from '../components/DemoModeBanner'
+import { OrderSpecSummary } from '../components/OrderSpecSummary'
+import { AttachmentGallery } from '../components/AttachmentGallery'
+import { SignContractDialog } from '../components/SignContractDialog'
+import { PayoutRequisitesDialog } from '../components/PayoutRequisitesDialog'
+import { BackLink } from '../components/BackLink'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { ESCALATABLE_STATUSES } from '../domain/dealMachine'
+import { formatMoney, maskCard } from '../domain/statusLabels'
+
+const ESCALATABLE = new Set(ESCALATABLE_STATUSES)
+
+export function FurnitureMakerDealDetail() {
+  const { id } = useParams<{ id: string }>()
+  const deal = useDeal(id)
+  const { revisions, transactions, disputes, messages, attachments } = useDealHistory(id)
+  const { payoutRequisites } = useDemoState()
+  const { sendToClient, signByFurnitureMaker, markProductionDone, callOperator, setRole } =
+    useDemoActions()
+  const navigate = useNavigate()
+  const [operatorReason, setOperatorReason] = useState('')
+
+  if (!deal) return <p className="text-sm text-muted-foreground">Сделка не найдена.</p>
+
+  const clientLink = `${window.location.origin}/client/deal/${deal.id}`
+
+  return (
+    <div className="grid gap-6">
+      <BackLink to="/furniture-maker" label="Мои сделки" />
+
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">{deal.title}</h1>
+          <div className="text-sm text-muted-foreground">{formatMoney(deal.amount)}</div>
+        </div>
+        <StatusBadge status={deal.status} />
+      </div>
+
+      <OrderSpecSummary deal={deal} />
+
+      {attachments.length > 0 && (
+        <section>
+          <h2 className="mb-2 text-sm font-semibold">Референсы от клиента</h2>
+          <AttachmentGallery attachments={attachments} />
+        </section>
+      )}
+
+      {deal.status === 'draft' && (
+        <div className="grid gap-3">
+          <p className="text-sm">Условия заполнены. Отправьте ссылку клиенту, чтобы начать согласование.</p>
+          <Button className="w-fit" onClick={() => sendToClient(deal.id)}>
+            Отправить клиенту
+          </Button>
+        </div>
+      )}
+
+      {deal.status === 'awaiting_client' && (
+        <div className="grid gap-3">
+          <p className="text-sm">
+            Ссылка сгенерирована. Отправьте её клиенту в мессенджер — как только он перейдёт по ней
+            и укажет телефон, сделка перейдёт к согласованию.
+          </p>
+          <LinkCopyBox link={clientLink} dealTitle={deal.title} />
+          <Button
+            variant="outline"
+            className="w-fit"
+            onClick={() => {
+              setRole('client')
+              navigate(`/client/deal/${deal.id}`)
+            }}
+          >
+            Открыть как клиент (для демонстрации)
+          </Button>
+        </div>
+      )}
+
+      {deal.status === 'negotiation' && (
+        <div className="grid gap-4">
+          <section>
+            <h2 className="mb-2 text-sm font-semibold">История правок</h2>
+            <RevisionDiffList revisions={revisions} />
+          </section>
+          {deal.clientAccepted ? (
+            <SignContractDialog
+              deal={deal}
+              triggerLabel="Посмотреть и подписать договор"
+              onSign={(code) => signByFurnitureMaker(deal.id, code)}
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">Ожидаем решения клиента — согласия или правок.</p>
+          )}
+          <Button
+            variant="outline"
+            className="w-fit"
+            onClick={() => {
+              setRole('client')
+              navigate(`/client/deal/${deal.id}`)
+            }}
+          >
+            Открыть как клиент (для демонстрации)
+          </Button>
+        </div>
+      )}
+
+      {deal.status === 'contract_signing' && (
+        <div className="rounded-md border border-info/30 bg-info/10 px-3.5 py-2.5 text-sm text-info">
+          Вы подписали договор. Ожидаем подписания от клиента — это может занять время, клиент подпишет,
+          когда откроет ссылку.
+        </div>
+      )}
+
+      {(deal.status === 'contract_signed' || deal.status === 'payment_pending') && (
+        <p className="text-sm text-muted-foreground">Договор подписан обеими сторонами, ждём оплату от клиента.</p>
+      )}
+
+      {deal.status === 'payment_processing' && (
+        <p className="text-sm text-muted-foreground">Клиент оплачивает — платёж обрабатывается банком/эквайрингом.</p>
+      )}
+
+      {(deal.status === 'paid' || deal.status === 'in_production') && (
+        <div className="grid gap-3">
+          <p className="text-sm">Оплата получена, изделие в производстве.</p>
+          <Button className="w-fit" onClick={() => markProductionDone(deal.id)}>
+            Отметить готово / передать на приёмку
+          </Button>
+        </div>
+      )}
+
+      {deal.status === 'awaiting_acceptance' && (
+        <p className="text-sm text-muted-foreground">Ждём подписания акта приёмки клиентом.</p>
+      )}
+
+      {deal.status === 'completed' && (
+        <p className="text-sm font-semibold text-success">Сделка завершена, выплаты произведены.</p>
+      )}
+
+      {deal.status === 'cancelled_refunded' && (
+        <p className="text-sm font-semibold text-destructive">Сделка отменена, инициирован возврат клиенту.</p>
+      )}
+
+      <DisputePanel deal={deal} disputes={disputes} />
+
+      {(deal.status === 'dispute_open' || messages.length > 0) && (
+        <section>
+          <h2 className="mb-2 text-sm font-semibold">Переписка с оператором</h2>
+          <MessageThread messages={messages} />
+        </section>
+      )}
+
+      {transactions.length > 0 && (
+        <section className="grid gap-2">
+          <h2 className="text-sm font-semibold">Выплаты</h2>
+          {payoutRequisites ? (
+            <div className="rounded-md border border-success/30 bg-success/10 px-3.5 py-2.5 text-sm text-success">
+              Деньги зачислены на карту {maskCard(payoutRequisites.cardNumber)} — можно закупать материалы.
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-warning/30 bg-warning/10 px-3.5 py-2.5 text-sm text-warning">
+              <span>Деньги готовы к выплате — укажите реквизиты, куда их перечислить.</span>
+              <PayoutRequisitesDialog triggerLabel="Добавить реквизиты" />
+            </div>
+          )}
+          <TransactionList transactions={transactions} payoutRequisites={payoutRequisites} />
+        </section>
+      )}
+
+      {ESCALATABLE.has(deal.status) && (
+        <section className="grid gap-2">
+          <h2 className="text-sm font-semibold">Позвать оператора</h2>
+          <DemoModeBanner>Оператор реально не уведомляется — это демонстрация вмешательства.</DemoModeBanner>
+          <Textarea
+            value={operatorReason}
+            onChange={(e) => setOperatorReason(e.target.value)}
+            placeholder="Опишите проблему, например: клиент не выходит на связь"
+          />
+          <Button
+            variant="outline"
+            className="w-fit"
+            disabled={!operatorReason.trim()}
+            onClick={() => {
+              callOperator(deal.id, 'furniture_maker', operatorReason.trim())
+              setOperatorReason('')
+            }}
+          >
+            Сообщить о проблеме
+          </Button>
+        </section>
+      )}
+    </div>
+  )
+}
+
+function LinkCopyBox({ link, dealTitle }: { link: string; dealTitle: string }) {
+  const [copied, setCopied] = useState(false)
+  const [copyFailed, setCopyFailed] = useState(false)
+  const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function'
+
+  return (
+    <div className="grid gap-1.5">
+      <div className="flex items-center gap-2">
+        <Input readOnly value={link} className="text-muted-foreground" />
+        <Button
+          variant="outline"
+          onClick={() => {
+            navigator.clipboard
+              .writeText(link)
+              .then(() => {
+                setCopied(true)
+                setTimeout(() => setCopied(false), 1500)
+              })
+              .catch(() => setCopyFailed(true))
+          }}
+        >
+          {copied ? 'Скопировано' : 'Скопировать'}
+        </Button>
+        {canShare && (
+          <Button
+            onClick={() => {
+              navigator
+                .share({
+                  title: 'Безопасная сделка',
+                  text: `Условия сделки «${dealTitle}» на платформе Asia Mebel`,
+                  url: link,
+                })
+                .catch(() => {})
+            }}
+          >
+            Поделиться
+          </Button>
+        )}
+      </div>
+      {copyFailed && (
+        <span className="text-xs text-destructive">Не удалось скопировать — выделите ссылку вручную</span>
+      )}
+    </div>
+  )
+}
