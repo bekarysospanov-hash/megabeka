@@ -26,7 +26,11 @@ import {
   submitPayment as submitPaymentFn,
 } from '../domain/dealMachine'
 import { generateId } from '../domain/id'
-import { buildNotificationEvents } from '../domain/notifications'
+import {
+  buildClientAcceptedNotification,
+  buildNotificationEvents,
+  buildRevisionRequestedNotification,
+} from '../domain/notifications'
 import { seedScenarios } from '../domain/seedScenarios'
 import type {
   Actor,
@@ -219,9 +223,9 @@ function reducer(state: DemoState, action: Action): DemoState {
         ...state,
         deals: { ...state.deals, [deal.id]: deal },
         revisions: [...state.revisions, revision],
-        // Статус не меняется (остаётся negotiation) — уведомляем всё равно, иначе мебельщик
-        // не узнает о запрошенной правке, пока сам не откроет сделку.
-        notifications: notify(state, deal.id, deal.status),
+        // Статус не меняется (остаётся negotiation) — своё, отличимое от общего текста
+        // negotiation уведомление, иначе оно молча сливается с "клиент рассматривает условия".
+        notifications: [...state.notifications, ...buildRevisionRequestedNotification(deal.id, action.field)],
       }
     }
     case 'clientAccepts': {
@@ -229,7 +233,7 @@ function reducer(state: DemoState, action: Action): DemoState {
       return {
         ...state,
         deals: { ...state.deals, [deal.id]: deal },
-        notifications: notify(state, deal.id, deal.status),
+        notifications: [...state.notifications, ...buildClientAcceptedNotification(deal.id)],
       }
     }
     case 'signByFurnitureMaker': {

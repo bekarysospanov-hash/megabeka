@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { calculateAvailableBalance } from './balance'
-import type { Transaction, TransferRequest } from './types'
+import { createDeal } from './dealMachine'
+import { calculateAvailableBalance, calculateTotalBalance } from './balance'
+import type { CreateDealInput, Transaction, TransferRequest } from './types'
+
+const baseInput: CreateDealInput = {
+  furnitureMakerId: 'fm-1',
+  title: 'Шкаф-купе',
+  amount: 500_000,
+  prepaymentPercent: 50,
+  finalPercent: 50,
+  commissionPercent: 10,
+}
 
 function tx(dealId: string, amount: number): Transaction {
   return { dealId, type: 'prepayment', amount, status: 'paid', paidAt: new Date().toISOString() }
@@ -36,5 +46,33 @@ describe('calculateAvailableBalance', () => {
     const transactions = [tx('deal-1', 500_000)]
     const transferRequests = [transfer('deal-1', 500_000)]
     expect(calculateAvailableBalance('deal-1', transactions, transferRequests)).toBe(0)
+  })
+})
+
+describe('calculateTotalBalance', () => {
+  it('пустой список сделок возвращает 0', () => {
+    expect(calculateTotalBalance([], [], [])).toBe(0)
+  })
+
+  it('без запросов равен сумме транзакций по всем сделкам', () => {
+    const dealA = createDeal(baseInput)
+    const dealB = createDeal(baseInput)
+    const transactions = [tx(dealA.id, 300_000), tx(dealB.id, 200_000)]
+    expect(calculateTotalBalance([dealA, dealB], transactions, [])).toBe(500_000)
+  })
+
+  it('учитывает запросы на перевод по каждой сделке отдельно', () => {
+    const dealA = createDeal(baseInput)
+    const dealB = createDeal(baseInput)
+    const transactions = [tx(dealA.id, 300_000), tx(dealB.id, 200_000)]
+    const transferRequests = [transfer(dealA.id, 100_000)]
+    expect(calculateTotalBalance([dealA, dealB], transactions, transferRequests)).toBe(400_000)
+  })
+
+  it('сделка без транзакций не даёт отрицательного вклада', () => {
+    const dealA = createDeal(baseInput)
+    const dealB = createDeal(baseInput)
+    const transactions = [tx(dealA.id, 300_000)]
+    expect(calculateTotalBalance([dealA, dealB], transactions, [])).toBe(300_000)
   })
 })

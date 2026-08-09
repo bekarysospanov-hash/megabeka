@@ -2,12 +2,13 @@ import { Link } from 'react-router-dom'
 import { useDemoState } from '../store/DemoProvider'
 import { StatusBadge } from '../components/StatusBadge'
 import { CategoryTag } from '../components/CategoryTag'
+import { FurnitureMakerDashboardSummary } from '../components/FurnitureMakerDashboardSummary'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { formatMoney } from '../domain/statusLabels'
 
 export function FurnitureMakerDealsList() {
-  const { deals } = useDemoState()
+  const { deals, transactions, transferRequests } = useDemoState()
   const list = Object.values(deals).sort((a, b) => a.title.localeCompare(b.title))
 
   return (
@@ -18,6 +19,8 @@ export function FurnitureMakerDealsList() {
           <Link to="/furniture-maker/new">+ Новая сделка</Link>
         </Button>
       </div>
+
+      <FurnitureMakerDashboardSummary deals={list} transactions={transactions} transferRequests={transferRequests} />
 
       <div className="grid gap-3">
         {list.map((deal) => (

@@ -1,4 +1,4 @@
-import type { DealStatus } from './types'
+import type { Deal, DealStatus } from './types'
 
 export interface ProgressStage {
   key: string
@@ -42,4 +42,11 @@ export const PROGRESS_STAGES: ProgressStage[] = [
 export function getProgressStageIndex(status: DealStatus): number | null {
   const index = PROGRESS_STAGES.findIndex((stage) => stage.statuses.includes(status))
   return index === -1 ? null : index
+}
+
+export function groupDealsByStage(deals: Deal[]): { stage: ProgressStage; deals: Deal[] }[] {
+  return PROGRESS_STAGES.map((stage) => ({
+    stage,
+    deals: deals.filter((deal) => stage.statuses.includes(deal.status)),
+  }))
 }
