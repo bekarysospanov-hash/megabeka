@@ -25,6 +25,8 @@ import {
   signByFurnitureMaker as signByFurnitureMakerFn,
   submitPayment as submitPaymentFn,
 } from '../domain/dealMachine'
+import { generateId } from '../domain/id'
+import { buildNotificationEvents } from '../domain/notifications'
 import { seedScenarios } from '../domain/seedScenarios'
 import type {
   Actor,
@@ -32,14 +34,17 @@ import type {
   CreateDealInput,
   Deal,
   DisputeLog,
+  FurnitureMakerVerification,
   Message,
+  NotificationEvent,
   PaymentMethod,
   PayoutRequisites,
   RevisionEntry,
   Transaction,
+  TransferRequest,
 } from '../domain/types'
 
-const STORAGE_KEY = 'asia-mebel-demo-state-v1'
+const STORAGE_KEY = 'asia-mebel-demo-state-v2'
 export const MAX_ATTACHMENTS_PER_DEAL = 4
 
 interface DemoState {
@@ -51,6 +56,9 @@ interface DemoState {
   messages: Message[]
   attachments: Attachment[]
   payoutRequisites: PayoutRequisites | null
+  notifications: NotificationEvent[]
+  furnitureMakerVerification: FurnitureMakerVerification | null
+  transferRequests: TransferRequest[]
 }
 
 function buildSeedState(): DemoState {
@@ -59,12 +67,14 @@ function buildSeedState(): DemoState {
   const revisions: RevisionEntry[] = []
   const transactions: Transaction[] = []
   const disputes: DisputeLog[] = []
+  const notifications: NotificationEvent[] = []
 
   for (const scenario of scenarios) {
     deals[scenario.deal.id] = scenario.deal
     revisions.push(...scenario.revisions)
     transactions.push(...scenario.transactions)
     disputes.push(...scenario.disputes)
+    notifications.push(...buildNotificationEvents(scenario.deal.id, scenario.deal.status))
   }
 
   return {
@@ -76,22 +86,35 @@ function buildSeedState(): DemoState {
     messages: [],
     attachments: [],
     payoutRequisites: null,
+    notifications,
+    furnitureMakerVerification: null,
+    transferRequests: [],
   }
 }
 
 function isValidDemoState(value: unknown): value is DemoState {
   if (!value || typeof value !== 'object') return false
   const v = value as Record<string, unknown>
-  return (
-    typeof v.role === 'string' &&
-    typeof v.deals === 'object' &&
-    v.deals !== null &&
-    Array.isArray(v.revisions) &&
-    Array.isArray(v.transactions) &&
-    Array.isArray(v.disputes) &&
-    Array.isArray(v.messages) &&
-    Array.isArray(v.attachments) &&
-    (v.payoutRequisites === null || typeof v.payoutRequisites === 'object')
+  if (
+    !(
+      typeof v.role === 'string' &&
+      typeof v.deals === 'object' &&
+      v.deals !== null &&
+      Array.isArray(v.revisions) &&
+      Array.isArray(v.transactions) &&
+      Array.isArray(v.disputes) &&
+      Array.isArray(v.messages) &&
+      Array.isArray(v.attachments) &&
+      (v.payoutRequisites === null || typeof v.payoutRequisites === 'object') &&
+      Array.isArray(v.notifications) &&
+      (v.furnitureMakerVerification === null || typeof v.furnitureMakerVerification === 'object') &&
+      Array.isArray(v.transferRequests)
+    )
+  ) {
+    return false
+  }
+  return Object.values(v.deals as Record<string, unknown>).every(
+    (deal) => typeof (deal as Record<string, unknown>).guaranteeIssuedAt === 'string',
   )
 }
 
@@ -136,6 +159,23 @@ type Action =
   | { type: 'addMessage'; dealId: string; author: Actor; text: string }
   | { type: 'addAttachment'; dealId: string; dataUrl: string; addedBy: Actor }
   | { type: 'setPayoutRequisites'; cardNumber: string; holderName: string }
+  | { type: 'markNotificationRead'; id: string }
+  | { type: 'markAllNotificationsRead'; role: Actor }
+  | { type: 'setFurnitureMakerVerification'; companyName: string; businessId: string; legalAddress: string }
+  | { type: 'requestTransfer'; dealId: string; amount: number; purpose: string }
+
+function notify(state: DemoState, dealId: string, status: Deal['status']): NotificationEvent[] {
+  return [...state.notifications, ...buildNotificationEvents(dealId, status)]
+}
+
+// Для переходов, которые dealMachine.ts проводит через промежуточный статус за один вызов
+// (например signByClientSms: contract_signing -> contract_signed -> payment_pending).
+// Статусы берутся из разницы statusHistory до/после — не хардкодим их литералами, иначе
+// список молча устареет, если граф в dealMachine.ts изменится.
+function notifyForTransition(state: DemoState, before: Deal, after: Deal): NotificationEvent[] {
+  const newStatuses = after.statusHistory.slice(before.statusHistory.length).map((h) => h.status)
+  return [...state.notifications, ...newStatuses.flatMap((status) => buildNotificationEvents(after.id, status))]
+}
 
 function reducer(state: DemoState, action: Action): DemoState {
   switch (action.type) {
@@ -145,15 +185,27 @@ function reducer(state: DemoState, action: Action): DemoState {
       return buildSeedState()
     case 'createDeal': {
       const deal = createDealFn(action.input)
-      return { ...state, deals: { ...state.deals, [deal.id]: deal } }
+      return {
+        ...state,
+        deals: { ...state.deals, [deal.id]: deal },
+        notifications: notify(state, deal.id, deal.status),
+      }
     }
     case 'sendToClient': {
       const deal = sendToClientFn(state.deals[action.dealId])
-      return { ...state, deals: { ...state.deals, [deal.id]: deal } }
+      return {
+        ...state,
+        deals: { ...state.deals, [deal.id]: deal },
+        notifications: notify(state, deal.id, deal.status),
+      }
     }
     case 'onboardClient': {
       const deal = onboardClientFn(state.deals[action.dealId], action.name, action.phone)
-      return { ...state, deals: { ...state.deals, [deal.id]: deal } }
+      return {
+        ...state,
+        deals: { ...state.deals, [deal.id]: deal },
+        notifications: notify(state, deal.id, deal.status),
+      }
     }
     case 'requestRevision': {
       const { deal, revision } = requestRevisionFn(
@@ -167,46 +219,78 @@ function reducer(state: DemoState, action: Action): DemoState {
         ...state,
         deals: { ...state.deals, [deal.id]: deal },
         revisions: [...state.revisions, revision],
+        // Статус не меняется (остаётся negotiation) — уведомляем всё равно, иначе мебельщик
+        // не узнает о запрошенной правке, пока сам не откроет сделку.
+        notifications: notify(state, deal.id, deal.status),
       }
     }
     case 'clientAccepts': {
       const deal = clientAcceptsFn(state.deals[action.dealId])
-      return { ...state, deals: { ...state.deals, [deal.id]: deal } }
+      return {
+        ...state,
+        deals: { ...state.deals, [deal.id]: deal },
+        notifications: notify(state, deal.id, deal.status),
+      }
     }
     case 'signByFurnitureMaker': {
       const deal = signByFurnitureMakerFn(state.deals[action.dealId], action.code)
-      return { ...state, deals: { ...state.deals, [deal.id]: deal } }
+      return {
+        ...state,
+        deals: { ...state.deals, [deal.id]: deal },
+        notifications: notify(state, deal.id, deal.status),
+      }
     }
     case 'signByClientSms': {
-      const deal = signByClientSmsFn(state.deals[action.dealId], action.code)
-      return { ...state, deals: { ...state.deals, [deal.id]: deal } }
+      const before = state.deals[action.dealId]
+      const deal = signByClientSmsFn(before, action.code)
+      return {
+        ...state,
+        deals: { ...state.deals, [deal.id]: deal },
+        notifications: notifyForTransition(state, before, deal),
+      }
     }
     case 'submitPayment': {
       const deal = submitPaymentFn(state.deals[action.dealId], action.method)
-      return { ...state, deals: { ...state.deals, [deal.id]: deal } }
+      return {
+        ...state,
+        deals: { ...state.deals, [deal.id]: deal },
+        notifications: notify(state, deal.id, deal.status),
+      }
     }
     case 'pay': {
-      const { deal, transaction } = payFn(state.deals[action.dealId])
+      const before = state.deals[action.dealId]
+      const { deal, transaction } = payFn(before)
       return {
         ...state,
         deals: { ...state.deals, [deal.id]: deal },
         transactions: [...state.transactions, transaction],
+        notifications: notifyForTransition(state, before, deal),
       }
     }
     case 'markProductionDone': {
       const deal = markProductionDoneFn(state.deals[action.dealId])
-      return { ...state, deals: { ...state.deals, [deal.id]: deal } }
+      return {
+        ...state,
+        deals: { ...state.deals, [deal.id]: deal },
+        notifications: notify(state, deal.id, deal.status),
+      }
     }
     case 'signActByFurnitureMaker': {
       const deal = signActByFurnitureMakerFn(state.deals[action.dealId], action.code)
-      return { ...state, deals: { ...state.deals, [deal.id]: deal } }
+      return {
+        ...state,
+        deals: { ...state.deals, [deal.id]: deal },
+        notifications: notify(state, deal.id, deal.status),
+      }
     }
     case 'signAct': {
-      const { deal, transaction } = signActFn(state.deals[action.dealId], action.code)
+      const before = state.deals[action.dealId]
+      const { deal, transaction } = signActFn(before, action.code)
       return {
         ...state,
         deals: { ...state.deals, [deal.id]: deal },
         transactions: [...state.transactions, transaction],
+        notifications: notifyForTransition(state, before, deal),
       }
     }
     case 'callOperator': {
@@ -219,6 +303,7 @@ function reducer(state: DemoState, action: Action): DemoState {
         ...state,
         deals: { ...state.deals, [deal.id]: deal },
         disputes: [...state.disputes, dispute],
+        notifications: notify(state, deal.id, deal.status),
       }
     }
     case 'freezeDispute': {
@@ -227,7 +312,11 @@ function reducer(state: DemoState, action: Action): DemoState {
     }
     case 'initiateRefund': {
       const deal = initiateRefundFn(state.deals[action.dealId])
-      return { ...state, deals: { ...state.deals, [deal.id]: deal } }
+      return {
+        ...state,
+        deals: { ...state.deals, [deal.id]: deal },
+        notifications: notify(state, deal.id, deal.status),
+      }
     }
     case 'resolveDispute': {
       const deal = resolveDisputeFn(state.deals[action.dealId])
@@ -237,10 +326,12 @@ function reducer(state: DemoState, action: Action): DemoState {
         disputes: state.disputes.map((d) =>
           d.dealId === deal.id && d.status === 'open' ? { ...d, status: 'resolved' } : d,
         ),
+        notifications: notify(state, deal.id, deal.status),
       }
     }
     case 'operatorSetStatus': {
       const current = state.deals[action.dealId]
+      if (current.status === action.status) return state
       const deal: Deal = {
         ...current,
         status: action.status,
@@ -249,7 +340,11 @@ function reducer(state: DemoState, action: Action): DemoState {
           { status: action.status, at: new Date().toISOString() },
         ],
       }
-      return { ...state, deals: { ...state.deals, [deal.id]: deal } }
+      return {
+        ...state,
+        deals: { ...state.deals, [deal.id]: deal },
+        notifications: notify(state, deal.id, deal.status),
+      }
     }
     case 'addMessage': {
       const message: Message = {
@@ -278,6 +373,39 @@ function reducer(state: DemoState, action: Action): DemoState {
         savedAt: new Date().toISOString(),
       }
       return { ...state, payoutRequisites }
+    }
+    case 'markNotificationRead': {
+      return {
+        ...state,
+        notifications: state.notifications.map((n) => (n.id === action.id ? { ...n, read: true } : n)),
+      }
+    }
+    case 'markAllNotificationsRead': {
+      return {
+        ...state,
+        notifications: state.notifications.map((n) =>
+          n.recipientRole === action.role ? { ...n, read: true } : n,
+        ),
+      }
+    }
+    case 'setFurnitureMakerVerification': {
+      const furnitureMakerVerification: FurnitureMakerVerification = {
+        companyName: action.companyName,
+        businessId: action.businessId,
+        legalAddress: action.legalAddress,
+        verifiedAt: new Date().toISOString(),
+      }
+      return { ...state, furnitureMakerVerification }
+    }
+    case 'requestTransfer': {
+      const transferRequest: TransferRequest = {
+        id: generateId(),
+        dealId: action.dealId,
+        amount: action.amount,
+        purpose: action.purpose,
+        requestedAt: new Date().toISOString(),
+      }
+      return { ...state, transferRequests: [...state.transferRequests, transferRequest] }
     }
     default:
       return state
@@ -327,8 +455,28 @@ export function useDealHistory(dealId: string | undefined) {
       disputes: state.disputes.filter((d) => d.dealId === dealId),
       messages: state.messages.filter((m) => m.dealId === dealId),
       attachments: state.attachments.filter((a) => a.dealId === dealId),
+      transferRequests: state.transferRequests.filter((r) => r.dealId === dealId),
     }),
-    [state.revisions, state.transactions, state.disputes, state.messages, state.attachments, dealId],
+    [
+      state.revisions,
+      state.transactions,
+      state.disputes,
+      state.messages,
+      state.attachments,
+      state.transferRequests,
+      dealId,
+    ],
+  )
+}
+
+export function useNotifications(role: Actor) {
+  const state = useDemoContext().state
+  return useMemo(
+    () =>
+      state.notifications
+        .filter((n) => n.recipientRole === role)
+        .sort((a, b) => b.at.localeCompare(a.at)),
+    [state.notifications, role],
   )
 }
 
@@ -425,6 +573,24 @@ export function useDemoActions() {
     setPayoutRequisites: useCallback(
       (cardNumber: string, holderName: string) =>
         dispatch({ type: 'setPayoutRequisites', cardNumber, holderName }),
+      [dispatch],
+    ),
+    markNotificationRead: useCallback(
+      (id: string) => dispatch({ type: 'markNotificationRead', id }),
+      [dispatch],
+    ),
+    markAllNotificationsRead: useCallback(
+      (role: Actor) => dispatch({ type: 'markAllNotificationsRead', role }),
+      [dispatch],
+    ),
+    setFurnitureMakerVerification: useCallback(
+      (companyName: string, businessId: string, legalAddress: string) =>
+        dispatch({ type: 'setFurnitureMakerVerification', companyName, businessId, legalAddress }),
+      [dispatch],
+    ),
+    requestTransfer: useCallback(
+      (dealId: string, amount: number, purpose: string) =>
+        dispatch({ type: 'requestTransfer', dealId, amount, purpose }),
       [dispatch],
     ),
   }

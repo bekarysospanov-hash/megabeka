@@ -53,16 +53,19 @@ export interface Deal {
   widthCm: number | null
   heightCm: number | null
   depthCm: number | null
+  lengthCm: number | null
   material: MaterialType | null
   finish: string | null
   qualityTier: QualityTier | null
   hardwareTier: HardwareTier | null
+  estimatedProductionDays: number | null
   status: DealStatus
   previousStatus: DealStatus | null
   frozen: boolean
   clientAccepted: boolean
   paymentMethod: PaymentMethod | null
   statusHistory: { status: DealStatus; at: string }[]
+  guaranteeIssuedAt: string
 }
 
 export interface RevisionEntry {
@@ -109,6 +112,31 @@ export interface Attachment {
   at: string
 }
 
+export interface NotificationEvent {
+  id: string
+  dealId: string
+  recipientRole: Actor
+  status: DealStatus
+  text: string
+  at: string
+  read: boolean
+}
+
+export interface FurnitureMakerVerification {
+  companyName: string
+  businessId: string
+  legalAddress: string
+  verifiedAt: string
+}
+
+export interface TransferRequest {
+  id: string
+  dealId: string
+  amount: number
+  purpose: string
+  requestedAt: string
+}
+
 export interface CreateDealInput {
   id?: string
   furnitureMakerId: string
@@ -124,8 +152,10 @@ export interface CreateDealInput {
   widthCm?: number | null
   heightCm?: number | null
   depthCm?: number | null
+  lengthCm?: number | null
   material?: MaterialType | null
   finish?: string | null
   qualityTier?: QualityTier | null
   hardwareTier?: HardwareTier | null
+  estimatedProductionDays?: number | null
 }

@@ -32,6 +32,7 @@ const HAPPY_INPUT: CreateDealInput = {
   prepaymentPercent: 50,
   finalPercent: 50,
   commissionPercent: 10,
+  estimatedProductionDays: 14,
 }
 
 const REVISIONS_INPUT: CreateDealInput = {
@@ -41,6 +42,7 @@ const REVISIONS_INPUT: CreateDealInput = {
   prepaymentPercent: 50,
   finalPercent: 50,
   commissionPercent: 10,
+  estimatedProductionDays: 21,
 }
 
 const DISPUTE_INPUT: CreateDealInput = {
@@ -50,6 +52,7 @@ const DISPUTE_INPUT: CreateDealInput = {
   prepaymentPercent: 50,
   finalPercent: 50,
   commissionPercent: 10,
+  estimatedProductionDays: 10,
 }
 
 function buildHappyScenario(): DemoScenario {

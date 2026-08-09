@@ -1,3 +1,4 @@
+import { generateId } from './id'
 import type {
   Actor,
   CreateDealInput,
@@ -22,7 +23,7 @@ export const ESCALATABLE_STATUSES: DealStatus[] = [
 ]
 
 export function generateDealId(): string {
-  return Math.random().toString(36).slice(2, 10)
+  return generateId()
 }
 
 function withStatus(deal: Deal, status: DealStatus): Deal {
@@ -67,16 +68,19 @@ export function createDeal(input: CreateDealInput): Deal {
     widthCm: input.widthCm ?? null,
     heightCm: input.heightCm ?? null,
     depthCm: input.depthCm ?? null,
+    lengthCm: input.lengthCm ?? null,
     material: input.material ?? null,
     finish: input.finish ?? null,
     qualityTier: input.qualityTier ?? null,
     hardwareTier: input.hardwareTier ?? null,
+    estimatedProductionDays: input.estimatedProductionDays ?? null,
     status: 'draft',
     previousStatus: null,
     frozen: false,
     clientAccepted: false,
     paymentMethod: null,
     statusHistory: [{ status: 'draft', at: new Date().toISOString() }],
+    guaranteeIssuedAt: new Date().toISOString(),
   }
 }
 

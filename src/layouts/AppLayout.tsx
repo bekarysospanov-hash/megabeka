@@ -4,6 +4,7 @@ import { ProductHeaderMocks } from '../components/ProductHeaderMocks'
 import { DemoBar } from '../components/DemoBar'
 import { Sidebar } from '../components/Sidebar'
 import { Footer } from '../components/Footer'
+import { NotificationBell } from '../components/NotificationBell'
 
 export function AppLayout() {
   return (
@@ -13,7 +14,10 @@ export function AppLayout() {
           <Link to="/">
             <Logo />
           </Link>
-          <ProductHeaderMocks />
+          <div className="flex items-center gap-2">
+            <NotificationBell />
+            <ProductHeaderMocks />
+          </div>
         </div>
       </header>
 

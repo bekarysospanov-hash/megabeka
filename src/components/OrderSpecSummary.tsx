@@ -13,7 +13,11 @@ export function OrderSpecSummary({ deal, hideContact }: { deal: Deal; hideContac
   const rows: { label: string; value: string }[] = [
     deal.category ? { label: 'Тип мебели', value: CATEGORY_LABELS[deal.category] } : null,
     deal.hasUpholstery ? { label: 'Мягкие элементы', value: 'Есть' } : null,
-    dimensions ? { label: 'Размеры', value: dimensions } : null,
+    deal.lengthCm != null ? { label: 'Длина', value: `${deal.lengthCm} см` } : null,
+    dimensions ? { label: 'Размеры (Ш×В×Г)', value: dimensions } : null,
+    deal.estimatedProductionDays != null
+      ? { label: 'Срок изготовления', value: `${deal.estimatedProductionDays} дн.` }
+      : null,
     deal.material ? { label: 'Материал', value: MATERIAL_LABELS[deal.material] } : null,
     deal.finish ? { label: 'Отделка', value: deal.finish } : null,
     deal.qualityTier ? { label: 'Качество', value: QUALITY_LABELS[deal.qualityTier] } : null,

@@ -11,9 +11,15 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { useDemoActions } from '../store/DemoProvider'
+import { GUARANTEE_SEEN_STORAGE_KEY } from './GuaranteeCertificateDialog'
 
 export function ResetDemoButton() {
   const { resetDemo } = useDemoActions()
+
+  function handleReset() {
+    window.localStorage.removeItem(GUARANTEE_SEEN_STORAGE_KEY)
+    resetDemo()
+  }
 
   return (
     <AlertDialog>
@@ -31,7 +37,7 @@ export function ResetDemoButton() {
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Отмена</AlertDialogCancel>
-          <AlertDialogAction onClick={() => resetDemo()}>Сбросить</AlertDialogAction>
+          <AlertDialogAction onClick={handleReset}>Сбросить</AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

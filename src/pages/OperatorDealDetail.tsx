@@ -8,6 +8,7 @@ import { DisputePanel } from '../components/DisputePanel'
 import { MessageThread } from '../components/MessageThread'
 import { OrderSpecSummary } from '../components/OrderSpecSummary'
 import { BackLink } from '../components/BackLink'
+import { StepGuidanceCard } from '../components/StepGuidanceCard'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { STATUS_LABELS, formatMoney } from '../domain/statusLabels'
@@ -44,6 +45,8 @@ export function OperatorDealDetail() {
         </div>
         <StatusBadge status={deal.status} />
       </div>
+
+      <StepGuidanceCard status={deal.status} actor="operator" />
 
       <OrderSpecSummary deal={deal} />
 

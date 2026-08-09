@@ -69,6 +69,15 @@ describe('createDeal', () => {
     const other = createDeal(baseInput)
     expect(other.slug).not.toBe(deal.slug)
   })
+
+  it('выдаёт гарантию сразу при создании — guaranteeIssuedAt проставлен валидной датой не в будущем', () => {
+    const before = Date.now()
+    const deal = createDeal(baseInput)
+    expect(deal.guaranteeIssuedAt).toBeTruthy()
+    const issuedAt = new Date(deal.guaranteeIssuedAt).getTime()
+    expect(issuedAt).toBeGreaterThanOrEqual(before)
+    expect(issuedAt).toBeLessThanOrEqual(Date.now())
+  })
 })
 
 describe('sendToClient', () => {
@@ -234,5 +243,12 @@ describe('seedScenarios', () => {
     const scenarios = seedScenarios()
     const revisions = scenarios.find((s) => s.key === 'revisions')!
     expect(revisions.deal.status).toBeTruthy()
+  })
+
+  it('все сид-сделки имеют выданную гарантию', () => {
+    const scenarios = seedScenarios()
+    for (const scenario of scenarios) {
+      expect(scenario.deal.guaranteeIssuedAt).toBeTruthy()
+    }
   })
 })

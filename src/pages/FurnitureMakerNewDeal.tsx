@@ -53,6 +53,7 @@ export function FurnitureMakerNewDeal() {
   const [contactPhone, setContactPhone] = useState('')
   const [category, setCategory] = useState<FurnitureCategory | null>(null)
   const [hasUpholstery, setHasUpholstery] = useState(false)
+  const [lengthCm, setLengthCm] = useState('')
   const [widthCm, setWidthCm] = useState('')
   const [heightCm, setHeightCm] = useState('')
   const [depthCm, setDepthCm] = useState('')
@@ -60,8 +61,9 @@ export function FurnitureMakerNewDeal() {
   const [finish, setFinish] = useState('')
   const [qualityTier, setQualityTier] = useState<QualityTier | ''>('')
   const [hardwareTier, setHardwareTier] = useState<HardwareTier | ''>('')
+  const [estimatedProductionDays, setEstimatedProductionDays] = useState('')
 
-  const canSubmit = title.trim().length > 0 && Number(amount) > 0
+  const canSubmit = title.trim().length > 0 && Number(amount) > 0 && contactPhone.trim().length > 0
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -79,6 +81,7 @@ export function FurnitureMakerNewDeal() {
       contactPhone: contactPhone.trim() || null,
       category,
       hasUpholstery,
+      lengthCm: lengthCm ? Number(lengthCm) : null,
       widthCm: widthCm ? Number(widthCm) : null,
       heightCm: heightCm ? Number(heightCm) : null,
       depthCm: depthCm ? Number(depthCm) : null,
@@ -86,6 +89,7 @@ export function FurnitureMakerNewDeal() {
       finish: finish.trim() || null,
       qualityTier: qualityTier || null,
       hardwareTier: hardwareTier || null,
+      estimatedProductionDays: estimatedProductionDays ? Number(estimatedProductionDays) : null,
     })
     navigate(`/furniture-maker/deal/${id}`)
   }
@@ -112,7 +116,7 @@ export function FurnitureMakerNewDeal() {
           />
         </div>
 
-        <FormSection step={1} title="Клиент" hint="Для вашего ориентира — клиент отдельно подтвердит себя по ссылке">
+        <FormSection step={1} title="Клиент" hint="Телефон нужен, чтобы отправить клиенту ссылку на сделку">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="grid gap-1.5">
               <Label htmlFor="contact-name">Имя</Label>
@@ -120,7 +124,12 @@ export function FurnitureMakerNewDeal() {
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="contact-phone">Телефон</Label>
-              <Input id="contact-phone" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} placeholder="Необязательно" />
+              <Input
+                id="contact-phone"
+                value={contactPhone}
+                onChange={(e) => setContactPhone(e.target.value)}
+                placeholder="+7 700 000 00 00"
+              />
             </div>
           </div>
         </FormSection>
@@ -155,7 +164,11 @@ export function FurnitureMakerNewDeal() {
         </FormSection>
 
         <FormSection step={3} title="Размеры" hint="Примерно, если известно">
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="grid gap-1.5">
+              <Label htmlFor="dim-length">Длина, см</Label>
+              <Input id="dim-length" type="number" min={0} value={lengthCm} onChange={(e) => setLengthCm(e.target.value)} />
+            </div>
             <div className="grid gap-1.5">
               <Label htmlFor="dim-width">Ширина, см</Label>
               <Input id="dim-width" type="number" min={0} value={widthCm} onChange={(e) => setWidthCm(e.target.value)} />
@@ -225,19 +238,32 @@ export function FurnitureMakerNewDeal() {
           </Select>
         </FormSection>
 
-        <div className="grid gap-1.5">
-          <Label htmlFor="deal-amount">Примерная сумма, ₸</Label>
-          <Input
-            id="deal-amount"
-            type="number"
-            min={0}
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-          />
-          <p className="text-xs text-muted-foreground">
-            Предоплата {DEFAULT_PREPAYMENT_PERCENT}% / финальный платёж {DEFAULT_FINAL_PERCENT}% ·
-            комиссия платформы {DEFAULT_COMMISSION_PERCENT}%
-          </p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-1.5">
+            <Label htmlFor="deal-amount">Примерная сумма, ₸</Label>
+            <Input
+              id="deal-amount"
+              type="number"
+              min={0}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Предоплата {DEFAULT_PREPAYMENT_PERCENT}% / финальный платёж {DEFAULT_FINAL_PERCENT}% ·
+              комиссия платформы {DEFAULT_COMMISSION_PERCENT}%
+            </p>
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="deal-production-days">Ориентировочный срок изготовления, дней</Label>
+            <Input
+              id="deal-production-days"
+              type="number"
+              min={0}
+              value={estimatedProductionDays}
+              onChange={(e) => setEstimatedProductionDays(e.target.value)}
+              placeholder="Необязательно"
+            />
+          </div>
         </div>
 
         <Button type="submit" disabled={!canSubmit} className="w-fit">

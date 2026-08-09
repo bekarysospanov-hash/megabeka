@@ -1,16 +1,20 @@
 import { CATEGORY_LABELS, HARDWARE_LABELS, MATERIAL_LABELS, QUALITY_LABELS, formatDimensions } from './orderSpecLabels'
-import { formatMoney } from './statusLabels'
+import { formatDate, formatMoney } from './statusLabels'
 import type { Deal } from './types'
 
 export function generateContractText(deal: Deal): string {
   const clientName = deal.clientName || deal.contactName || '__________________'
   const category = deal.category ? CATEGORY_LABELS[deal.category] : 'не указан'
   const dimensions = formatDimensions(deal.widthCm, deal.heightCm, deal.depthCm) ?? 'уточняются при замере на объекте'
+  const length = deal.lengthCm != null ? `; длина — ${deal.lengthCm} см` : ''
   const material = deal.material ? MATERIAL_LABELS[deal.material] : 'уточняется'
   const finish = deal.finish || 'уточняется'
   const quality = deal.qualityTier ? QUALITY_LABELS[deal.qualityTier] : 'уточняется'
   const hardware = deal.hardwareTier ? HARDWARE_LABELS[deal.hardwareTier] : 'уточняется'
-  const today = new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date())
+  const productionDeadline = deal.estimatedProductionDays != null
+    ? `${deal.estimatedProductionDays} дн. с момента подписания настоящего Договора обеими Сторонами`
+    : 'согласуется Сторонами дополнительно после проведения замера и уточнения характеристик'
+  const today = formatDate(new Date().toISOString())
 
   return `ДОГОВОР ПОДРЯДА № ${deal.slug}
 на изготовление мебели по индивидуальному заказу
@@ -23,7 +27,7 @@ export function generateContractText(deal: Deal): string {
 1.1. Исполнитель обязуется изготовить и передать Заказчику мебель согласно согласованной спецификации (далее — «Изделие»), а Заказчик обязуется принять и оплатить Изделие на условиях настоящего Договора.
 1.2. Наименование заказа: «${deal.title}».
 1.3. Тип мебели: ${category}.
-1.4. Характеристики Изделия: размеры — ${dimensions}; материал корпуса — ${material}; отделка — ${finish}; класс фурнитуры — ${hardware}; уровень исполнения — ${quality}.
+1.4. Характеристики Изделия: размеры — ${dimensions}${length}; материал корпуса — ${material}; отделка — ${finish}; класс фурнитуры — ${hardware}; уровень исполнения — ${quality}.
 1.5. Указанные характеристики являются предварительными и могут быть уточнены Сторонами после проведения замера на объекте Заказчика.
 
 2. ЦЕНА ДОГОВОРА И ПОРЯДОК РАСЧЁТОВ
@@ -33,7 +37,7 @@ export function generateContractText(deal: Deal): string {
 2.4. Платформа Asia Mebel выступает гарантом сделки по сервису «Безопасная сделка»: удерживает оплату Заказчика до подписания акта приёма-передачи и гарантирует Заказчику возврат оплаченной суммы, если сделка не будет исполнена, а Исполнителю — получение предусмотренных траншей при выполнении условий Договора.
 
 3. СРОКИ
-3.1. Срок изготовления Изделия согласуется Сторонами дополнительно после проведения замера и уточнения характеристик.
+3.1. Срок изготовления Изделия: ${productionDeadline}.
 
 4. ПРАВА И ОБЯЗАННОСТИ СТОРОН
 4.1. Исполнитель обязуется изготовить Изделие в соответствии с согласованными характеристиками и передать его Заказчику в согласованный срок.
@@ -57,7 +61,7 @@ export function generateContractText(deal: Deal): string {
 
 export function generateActText(deal: Deal): string {
   const clientName = deal.clientName || deal.contactName || '__________________'
-  const today = new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date())
+  const today = formatDate(new Date().toISOString())
   const finalAmount = Math.round((deal.amount * deal.finalPercent) / 100)
 
   return `АКТ ПРИЁМА-ПЕРЕДАЧИ

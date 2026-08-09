@@ -51,6 +51,12 @@ export function maskCard(cardNumber: string): string {
   return digits.length >= 4 ? `•• ${digits.slice(-4)}` : '••••'
 }
 
+export function formatDate(iso: string): string {
+  return new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(
+    new Date(iso),
+  )
+}
+
 export function formatDateTime(iso: string): string {
   return new Intl.DateTimeFormat('ru-RU', {
     day: '2-digit',

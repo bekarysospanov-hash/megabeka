@@ -12,6 +12,10 @@ import { AttachmentGallery } from '../components/AttachmentGallery'
 import { SignDocumentDialog } from '../components/SignDocumentDialog'
 import { PaymentMethodPicker, PaymentProcessing } from '../components/PaymentFlow'
 import { GuaranteeBanner } from '../components/GuaranteeBanner'
+import { StepGuidanceCard } from '../components/StepGuidanceCard'
+import { DealProgressBar } from '../components/DealProgressBar'
+import { KeyTermsSummary } from '../components/KeyTermsSummary'
+import { ProductionTimer } from '../components/ProductionTimer'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -142,7 +146,13 @@ function ClientDealScreen({ dealId }: { dealId: string }) {
         <StatusBadge status={deal.status} />
       </div>
 
+      <DealProgressBar status={deal.status} />
+
+      <StepGuidanceCard status={deal.status} actor="client" />
+
       {deal.status === 'negotiation' && <PreliminaryEstimateBanner />}
+
+      {deal.status === 'negotiation' && !deal.clientAccepted && <KeyTermsSummary deal={deal} />}
 
       <OrderSpecSummary deal={deal} hideContact />
 
@@ -247,7 +257,10 @@ function ClientDealScreen({ dealId }: { dealId: string }) {
       )}
 
       {(deal.status === 'paid' || deal.status === 'in_production') && (
-        <p className="text-sm text-muted-foreground">Оплата получена, мебельщик готовит заказ.</p>
+        <div className="grid gap-3">
+          <p className="text-sm text-muted-foreground">Оплата получена, мебельщик готовит заказ.</p>
+          {deal.status === 'in_production' && <ProductionTimer deal={deal} />}
+        </div>
       )}
 
       {deal.status === 'awaiting_acceptance' && (
