@@ -9,14 +9,16 @@ import { DemoModeBanner } from '../components/DemoModeBanner'
 import { OrderSpecSummary } from '../components/OrderSpecSummary'
 import { PreliminaryEstimateBanner } from '../components/PreliminaryEstimateBanner'
 import { AttachmentGallery } from '../components/AttachmentGallery'
-import { SignContractDialog } from '../components/SignContractDialog'
+import { SignDocumentDialog } from '../components/SignDocumentDialog'
 import { PaymentMethodPicker, PaymentProcessing } from '../components/PaymentFlow'
+import { GuaranteeBanner } from '../components/GuaranteeBanner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ESCALATABLE_STATUSES } from '../domain/dealMachine'
+import { generateActText, generateContractText } from '../domain/contractTemplate'
 import { formatMoney } from '../domain/statusLabels'
 import type { Deal } from '../domain/types'
 
@@ -60,6 +62,7 @@ function ClientOnboarding({ deal }: { deal: Deal }) {
           <div className="mt-1 font-semibold">{deal.contactName || 'Имя не указано'}</div>
           <div className="text-sm text-muted-foreground">{deal.contactPhone || 'Телефон не указан'}</div>
         </div>
+        <GuaranteeBanner perspective="client" />
         <div className="flex flex-wrap gap-2">
           <Button onClick={() => onboardClient(deal.id, name.trim(), phone.trim())}>Да, это я</Button>
           <Button variant="outline" onClick={() => setEditing(true)}>
@@ -92,6 +95,7 @@ function ClientOnboarding({ deal }: { deal: Deal }) {
           />
         </div>
       </div>
+      <GuaranteeBanner perspective="client" />
       <Button
         disabled={name.trim().length < 2 || phone.trim().length < 5}
         onClick={() => onboardClient(deal.id, name.trim(), phone.trim())}
@@ -114,8 +118,7 @@ function ClientDealScreen({ dealId }: { dealId: string }) {
     signAct,
     callOperator,
     addAttachment,
-  } =
-    useDemoActions()
+  } = useDemoActions()
 
   const [revisionField, setRevisionField] = useState<'amount' | 'deadline'>('amount')
   const [revisionNewValue, setRevisionNewValue] = useState('')
@@ -222,8 +225,9 @@ function ClientDealScreen({ dealId }: { dealId: string }) {
           <p className="text-sm text-muted-foreground">
             Мебельщик подписал договор. Посмотрите условия и подпишите со своей стороны.
           </p>
-          <SignContractDialog
-            deal={deal}
+          <SignDocumentDialog
+            documentTitle={`Договор подряда № ${deal.slug}`}
+            documentText={generateContractText(deal)}
             triggerLabel="Посмотреть и подписать договор"
             onSign={(code) => signByClientSms(deal.id, code)}
           />
@@ -232,6 +236,7 @@ function ClientDealScreen({ dealId }: { dealId: string }) {
 
       {(deal.status === 'contract_signed' || deal.status === 'payment_pending') && (
         <div className="grid gap-3">
+          <GuaranteeBanner perspective="client" />
           <DemoModeBanner>Оплата имитируется, реальный платёж не проводится.</DemoModeBanner>
           <PaymentMethodPicker amount={deal.amount} onSubmit={(method) => submitPayment(deal.id, method)} />
         </div>
@@ -246,7 +251,19 @@ function ClientDealScreen({ dealId }: { dealId: string }) {
       )}
 
       {deal.status === 'awaiting_acceptance' && (
-        <Button onClick={() => signAct(deal.id)}>Принять работу / подписать акт</Button>
+        <p className="text-sm text-muted-foreground">
+          Мебельщик готовит акт приёма-передачи. Как только он подпишет — вы сможете подписать со своей
+          стороны.
+        </p>
+      )}
+
+      {deal.status === 'act_signing' && (
+        <SignDocumentDialog
+          documentTitle={`Акт приёма-передачи к договору № ${deal.slug}`}
+          documentText={generateActText(deal)}
+          triggerLabel="Посмотреть и подписать акт"
+          onSign={(code) => signAct(deal.id, code)}
+        />
       )}
 
       {deal.status === 'completed' && (

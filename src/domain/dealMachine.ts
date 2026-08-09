@@ -18,6 +18,7 @@ export const ESCALATABLE_STATUSES: DealStatus[] = [
   'paid',
   'in_production',
   'awaiting_acceptance',
+  'act_signing',
 ]
 
 export function generateDealId(): string {
@@ -149,8 +150,13 @@ export function markProductionDone(deal: Deal): Deal {
   return withStatus(deal, 'awaiting_acceptance')
 }
 
-export function signAct(deal: Deal): { deal: Deal; transaction: Transaction } {
+export function signActByFurnitureMaker(deal: Deal, _code: string): Deal {
   assertStatus(deal, 'awaiting_acceptance')
+  return withStatus(deal, 'act_signing')
+}
+
+export function signAct(deal: Deal, _code: string): { deal: Deal; transaction: Transaction } {
+  assertStatus(deal, 'act_signing')
   const transaction: Transaction = {
     dealId: deal.id,
     type: 'final',

@@ -10,6 +10,7 @@ import {
   resolveDispute,
   sendToClient,
   signAct,
+  signActByFurnitureMaker,
   signByClientSms,
   signByFurnitureMaker,
   submitPayment,
@@ -58,7 +59,8 @@ function buildHappyScenario(): DemoScenario {
   deal = submitPayment(deal, 'card')
   const prepay = pay(deal)
   deal = markProductionDone(prepay.deal)
-  const final = signAct(deal)
+  deal = signActByFurnitureMaker(deal, '9999')
+  const final = signAct(deal, '9999')
 
   return {
     key: 'happy',
@@ -88,7 +90,8 @@ function buildRevisionsScenario(): DemoScenario {
   deal = submitPayment(deal, 'card')
   const prepay = pay(deal)
   deal = markProductionDone(prepay.deal)
-  const final = signAct(deal)
+  deal = signActByFurnitureMaker(deal, '9999')
+  const final = signAct(deal, '9999')
 
   return {
     key: 'revisions',
@@ -113,7 +116,8 @@ function buildDisputeScenario(): DemoScenario {
   deal = resolveDispute(deal)
 
   deal = markProductionDone(deal)
-  const final = signAct(deal)
+  deal = signActByFurnitureMaker(deal, '9999')
+  const final = signAct(deal, '9999')
 
   return {
     key: 'dispute',

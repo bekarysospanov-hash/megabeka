@@ -9,13 +9,15 @@ import { MessageThread } from '../components/MessageThread'
 import { DemoModeBanner } from '../components/DemoModeBanner'
 import { OrderSpecSummary } from '../components/OrderSpecSummary'
 import { AttachmentGallery } from '../components/AttachmentGallery'
-import { SignContractDialog } from '../components/SignContractDialog'
+import { SignDocumentDialog } from '../components/SignDocumentDialog'
 import { PayoutRequisitesDialog } from '../components/PayoutRequisitesDialog'
+import { GuaranteeBanner } from '../components/GuaranteeBanner'
 import { BackLink } from '../components/BackLink'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { ESCALATABLE_STATUSES } from '../domain/dealMachine'
+import { generateActText, generateContractText } from '../domain/contractTemplate'
 import { formatMoney, maskCard } from '../domain/statusLabels'
 
 const ESCALATABLE = new Set(ESCALATABLE_STATUSES)
@@ -25,8 +27,14 @@ export function FurnitureMakerDealDetail() {
   const deal = useDeal(id)
   const { revisions, transactions, disputes, messages, attachments } = useDealHistory(id)
   const { payoutRequisites } = useDemoState()
-  const { sendToClient, signByFurnitureMaker, markProductionDone, callOperator, setRole } =
-    useDemoActions()
+  const {
+    sendToClient,
+    signByFurnitureMaker,
+    markProductionDone,
+    signActByFurnitureMaker,
+    callOperator,
+    setRole,
+  } = useDemoActions()
   const navigate = useNavigate()
   const [operatorReason, setOperatorReason] = useState('')
 
@@ -91,8 +99,9 @@ export function FurnitureMakerDealDetail() {
             <RevisionDiffList revisions={revisions} />
           </section>
           {deal.clientAccepted ? (
-            <SignContractDialog
-              deal={deal}
+            <SignDocumentDialog
+              documentTitle={`Договор подряда № ${deal.slug}`}
+              documentText={generateContractText(deal)}
               triggerLabel="Посмотреть и подписать договор"
               onSign={(code) => signByFurnitureMaker(deal.id, code)}
             />
@@ -120,7 +129,10 @@ export function FurnitureMakerDealDetail() {
       )}
 
       {(deal.status === 'contract_signed' || deal.status === 'payment_pending') && (
-        <p className="text-sm text-muted-foreground">Договор подписан обеими сторонами, ждём оплату от клиента.</p>
+        <div className="grid gap-3">
+          <p className="text-sm text-muted-foreground">Договор подписан обеими сторонами, ждём оплату от клиента.</p>
+          <GuaranteeBanner perspective="furniture_maker" />
+        </div>
       )}
 
       {deal.status === 'payment_processing' && (
@@ -137,7 +149,18 @@ export function FurnitureMakerDealDetail() {
       )}
 
       {deal.status === 'awaiting_acceptance' && (
-        <p className="text-sm text-muted-foreground">Ждём подписания акта приёмки клиентом.</p>
+        <SignDocumentDialog
+          documentTitle={`Акт приёма-передачи к договору № ${deal.slug}`}
+          documentText={generateActText(deal)}
+          triggerLabel="Посмотреть и подписать акт"
+          onSign={(code) => signActByFurnitureMaker(deal.id, code)}
+        />
+      )}
+
+      {deal.status === 'act_signing' && (
+        <div className="rounded-md border border-info/30 bg-info/10 px-3.5 py-2.5 text-sm text-info">
+          Вы подписали акт. Ожидаем подписания от клиента — после этого придёт финальный платёж.
+        </div>
       )}
 
       {deal.status === 'completed' && (

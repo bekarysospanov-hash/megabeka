@@ -20,6 +20,7 @@ import {
   resolveDispute as resolveDisputeFn,
   sendToClient as sendToClientFn,
   signAct as signActFn,
+  signActByFurnitureMaker as signActByFurnitureMakerFn,
   signByClientSms as signByClientSmsFn,
   signByFurnitureMaker as signByFurnitureMakerFn,
   submitPayment as submitPaymentFn,
@@ -125,7 +126,8 @@ type Action =
   | { type: 'submitPayment'; dealId: string; method: PaymentMethod }
   | { type: 'pay'; dealId: string }
   | { type: 'markProductionDone'; dealId: string }
-  | { type: 'signAct'; dealId: string }
+  | { type: 'signActByFurnitureMaker'; dealId: string; code: string }
+  | { type: 'signAct'; dealId: string; code: string }
   | { type: 'callOperator'; dealId: string; openedBy: Actor; reason: string }
   | { type: 'freezeDispute'; dealId: string }
   | { type: 'initiateRefund'; dealId: string }
@@ -195,8 +197,12 @@ function reducer(state: DemoState, action: Action): DemoState {
       const deal = markProductionDoneFn(state.deals[action.dealId])
       return { ...state, deals: { ...state.deals, [deal.id]: deal } }
     }
+    case 'signActByFurnitureMaker': {
+      const deal = signActByFurnitureMakerFn(state.deals[action.dealId], action.code)
+      return { ...state, deals: { ...state.deals, [deal.id]: deal } }
+    }
     case 'signAct': {
-      const { deal, transaction } = signActFn(state.deals[action.dealId])
+      const { deal, transaction } = signActFn(state.deals[action.dealId], action.code)
       return {
         ...state,
         deals: { ...state.deals, [deal.id]: deal },
@@ -376,7 +382,14 @@ export function useDemoActions() {
       (dealId: string) => dispatch({ type: 'markProductionDone', dealId }),
       [dispatch],
     ),
-    signAct: useCallback((dealId: string) => dispatch({ type: 'signAct', dealId }), [dispatch]),
+    signActByFurnitureMaker: useCallback(
+      (dealId: string, code: string) => dispatch({ type: 'signActByFurnitureMaker', dealId, code }),
+      [dispatch],
+    ),
+    signAct: useCallback(
+      (dealId: string, code: string) => dispatch({ type: 'signAct', dealId, code }),
+      [dispatch],
+    ),
     callOperator: useCallback(
       (dealId: string, openedBy: Actor, reason: string) =>
         dispatch({ type: 'callOperator', dealId, openedBy, reason }),

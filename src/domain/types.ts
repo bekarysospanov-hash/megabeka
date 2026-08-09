@@ -9,6 +9,7 @@ export type DealStatus =
   | 'paid'
   | 'in_production'
   | 'awaiting_acceptance'
+  | 'act_signing'
   | 'act_signed'
   | 'completed'
   | 'dispute_open'

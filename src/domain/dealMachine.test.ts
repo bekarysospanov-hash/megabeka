@@ -12,6 +12,7 @@ import {
   resolveDispute,
   sendToClient,
   signAct,
+  signActByFurnitureMaker,
   signByClientSms,
   signByFurnitureMaker,
   submitPayment,
@@ -54,6 +55,10 @@ function toInProduction(): Deal {
 
 function toAwaitingAcceptance(): Deal {
   return markProductionDone(toInProduction())
+}
+
+function toActSigning(): Deal {
+  return signActByFurnitureMaker(toAwaitingAcceptance(), '7777')
 }
 
 describe('createDeal', () => {
@@ -157,9 +162,20 @@ describe('markProductionDone', () => {
   })
 })
 
+describe('signActByFurnitureMaker', () => {
+  it('переводит awaiting_acceptance в act_signing', () => {
+    const deal = toActSigning()
+    expect(deal.status).toBe('act_signing')
+  })
+})
+
 describe('signAct', () => {
+  it('недоступен, пока мебельщик не подписал акт', () => {
+    expect(() => signAct(toAwaitingAcceptance(), '1234')).toThrow()
+  })
+
   it('переводит сделку в completed и создаёт финальный транш за вычетом комиссии', () => {
-    const { deal, transaction } = signAct(toAwaitingAcceptance())
+    const { deal, transaction } = signAct(toActSigning(), '1234')
     expect(deal.status).toBe('completed')
     expect(deal.statusHistory.some((h) => h.status === 'act_signed')).toBe(true)
     expect(transaction.type).toBe('final')

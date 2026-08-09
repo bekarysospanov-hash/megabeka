@@ -10,15 +10,15 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { DemoModeBanner } from './DemoModeBanner'
-import { generateContractText } from '../domain/contractTemplate'
-import type { Deal } from '../domain/types'
 
-export function SignContractDialog({
-  deal,
+export function SignDocumentDialog({
+  documentTitle,
+  documentText,
   triggerLabel,
   onSign,
 }: {
-  deal: Deal
+  documentTitle: string
+  documentText: string
   triggerLabel: string
   onSign: (code: string) => void
 }) {
@@ -36,10 +36,10 @@ export function SignContractDialog({
       <Button onClick={() => setOpen(true)}>{triggerLabel}</Button>
       <DialogContent className="max-h-[85vh] grid-rows-[auto_1fr_auto] overflow-hidden">
         <DialogHeader>
-          <DialogTitle>Договор подряда № {deal.slug}</DialogTitle>
+          <DialogTitle>{documentTitle}</DialogTitle>
         </DialogHeader>
         <div className="overflow-y-auto whitespace-pre-wrap rounded-md border bg-muted/30 p-4 text-xs leading-relaxed">
-          {generateContractText(deal)}
+          {documentText}
         </div>
         <DialogFooter className="flex-col items-stretch gap-3 sm:flex-col sm:items-stretch">
           <DemoModeBanner>СМС реально не отправляется — подойдёт любой код.</DemoModeBanner>
