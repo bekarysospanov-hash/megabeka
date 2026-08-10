@@ -66,6 +66,8 @@ export interface Deal {
   paymentMethod: PaymentMethod | null
   statusHistory: { status: DealStatus; at: string }[]
   guaranteeIssuedAt: string
+  acceptedWithRemarks: boolean
+  acceptanceRemarks: string | null
 }
 
 export interface RevisionEntry {
@@ -159,3 +161,5 @@ export interface CreateDealInput {
   hardwareTier?: HardwareTier | null
   estimatedProductionDays?: number | null
 }
+
+export type DealSpecInput = Omit<CreateDealInput, 'id' | 'furnitureMakerId'>

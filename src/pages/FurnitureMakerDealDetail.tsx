@@ -16,14 +16,16 @@ import { GuaranteeCertificateDialog } from '../components/GuaranteeCertificateDi
 import { StepGuidanceCard } from '../components/StepGuidanceCard'
 import { DealProgressBar } from '../components/DealProgressBar'
 import { DealBalance } from '../components/DealBalance'
+import { PayoutTimeline } from '../components/PayoutTimeline'
+import { DealSpecForm } from '../components/DealSpecForm'
 import { BackLink } from '../components/BackLink'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { ESCALATABLE_STATUSES } from '../domain/dealMachine'
+import { dealToSpecInput, ESCALATABLE_STATUSES } from '../domain/dealMachine'
 import { generateActText, generateContractText } from '../domain/contractTemplate'
-import { calculateGuaranteeReserve } from '../domain/guaranteeReserve'
-import { formatMoney, maskCard } from '../domain/statusLabels'
+import { calculateGuaranteeReserve, GUARANTEE_RESERVE_LIMIT } from '../domain/guaranteeReserve'
+import { formatMoney } from '../domain/statusLabels'
 
 const ESCALATABLE = new Set(ESCALATABLE_STATUSES)
 
@@ -31,7 +33,7 @@ export function FurnitureMakerDealDetail() {
   const { id } = useParams<{ id: string }>()
   const deal = useDeal(id)
   const { revisions, transactions, disputes, messages, attachments, transferRequests } = useDealHistory(id)
-  const { payoutRequisites, deals } = useDemoState()
+  const { payoutRequisites, deals, furnitureMakerVerification } = useDemoState()
   const {
     sendToClient,
     signByFurnitureMaker,
@@ -39,9 +41,13 @@ export function FurnitureMakerDealDetail() {
     signActByFurnitureMaker,
     callOperator,
     setRole,
+    updateDeal,
+    addMessage,
   } = useDemoActions()
   const navigate = useNavigate()
   const [operatorReason, setOperatorReason] = useState('')
+  const [showEditSpecForm, setShowEditSpecForm] = useState(false)
+  const [reserveWarning, setReserveWarning] = useState<string | null>(null)
 
   if (!deal) return <p className="text-sm text-muted-foreground">Сделка не найдена.</p>
 
@@ -88,13 +94,18 @@ export function FurnitureMakerDealDetail() {
         <div className="grid gap-3">
           <p className="text-sm">Условия заполнены. Отправьте ссылку клиенту, чтобы начать согласование.</p>
           {missingRequisites && (
-            <p className="text-sm text-warning">
-              Прежде чем отправить сделку клиенту, укажите{' '}
-              <Link to="/furniture-maker/profile" className="underline">
-                реквизиты для выплат
-              </Link>
-              .
-            </p>
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-warning/30 bg-warning/10 px-3.5 py-2.5 text-sm text-warning">
+              <span>Прежде чем отправить сделку клиенту, укажите реквизиты для выплат.</span>
+              <PayoutRequisitesDialog triggerLabel="Добавить реквизиты" />
+            </div>
+          )}
+          {!furnitureMakerVerification && (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-info/30 bg-info/10 px-3.5 py-2.5 text-sm text-info">
+              <span>Вы ещё не прошли верификацию — клиенты увидят, что вы проверенный продавец.</span>
+              <Button asChild variant="outline" size="sm">
+                <Link to="/furniture-maker/verification">Пройти верификацию</Link>
+              </Button>
+            </div>
           )}
           {reserveExceeded && (
             <p className="text-sm text-warning">
@@ -102,9 +113,14 @@ export function FurnitureMakerDealDetail() {
               резерва по другим сделкам.
             </p>
           )}
-          <Button className="w-fit" disabled={sendBlocked} onClick={() => sendToClient(deal.id)}>
-            Отправить клиенту
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button disabled={sendBlocked} onClick={() => sendToClient(deal.id)}>
+              Отправить клиенту
+            </Button>
+            <Button variant="outline" onClick={() => navigate(`/furniture-maker/deal/${deal.id}/edit`)}>
+              Редактировать
+            </Button>
+          </div>
         </div>
       )}
 
@@ -133,6 +149,34 @@ export function FurnitureMakerDealDetail() {
           <section>
             <h2 className="mb-2 text-sm font-semibold">История правок</h2>
             <RevisionDiffList revisions={revisions} />
+          </section>
+          <section className="grid gap-2">
+            <Button variant="outline" className="w-fit" onClick={() => setShowEditSpecForm((v) => !v)}>
+              {showEditSpecForm ? 'Скрыть форму условий' : 'Изменить условия по правкам клиента'}
+            </Button>
+            {reserveWarning && <p className="text-sm text-warning">{reserveWarning}</p>}
+            {showEditSpecForm && (
+              <DealSpecForm
+                key={deal.id}
+                initial={dealToSpecInput(deal)}
+                submitLabel="Отправить обновлённые условия клиенту"
+                onSubmit={(input) => {
+                  const otherReserveUsed = calculateGuaranteeReserve(
+                    Object.values(deals).filter((d) => d.id !== deal.id),
+                  ).used
+                  const availableForThisDeal = GUARANTEE_RESERVE_LIMIT - otherReserveUsed
+                  if (input.amount > availableForThisDeal) {
+                    setReserveWarning(
+                      `Новая сумма превышает доступный резерв гарантии — не хватает ${formatMoney(input.amount - availableForThisDeal)}.`,
+                    )
+                    return
+                  }
+                  setReserveWarning(null)
+                  updateDeal(deal.id, input)
+                  setShowEditSpecForm(false)
+                }}
+              />
+            )}
           </section>
           {deal.clientAccepted ? (
             <SignDocumentDialog
@@ -200,7 +244,14 @@ export function FurnitureMakerDealDetail() {
       )}
 
       {deal.status === 'completed' && (
-        <p className="text-sm font-semibold text-success">Сделка завершена, выплаты произведены.</p>
+        <div className="grid gap-2">
+          <p className="text-sm font-semibold text-success">Сделка завершена, выплаты произведены.</p>
+          {deal.acceptedWithRemarks && (
+            <div className="rounded-md border border-warning/30 bg-warning/10 px-3.5 py-2.5 text-sm text-warning">
+              Клиент принял с замечаниями: «{deal.acceptanceRemarks}»
+            </div>
+          )}
+        </div>
       )}
 
       {deal.status === 'cancelled_refunded' && (
@@ -209,30 +260,21 @@ export function FurnitureMakerDealDetail() {
 
       <DisputePanel deal={deal} disputes={disputes} />
 
-      {(deal.status === 'dispute_open' || messages.length > 0) && (
+      {deal.status !== 'draft' && deal.status !== 'awaiting_client' && (
         <section>
-          <h2 className="mb-2 text-sm font-semibold">Переписка с оператором</h2>
-          <MessageThread messages={messages} />
+          <h2 className="mb-2 text-sm font-semibold">Переписка</h2>
+          <MessageThread messages={messages} onSend={(text) => addMessage(deal.id, 'furniture_maker', text)} />
         </section>
       )}
 
       {transactions.length > 0 && (
         <section className="grid gap-2">
           <h2 className="text-sm font-semibold">Выплаты</h2>
-          {payoutRequisites ? (
-            <div className="rounded-md border border-success/30 bg-success/10 px-3.5 py-2.5 text-sm text-success">
-              Деньги зачислены на карту {maskCard(payoutRequisites.cardNumber)} — можно закупать материалы.
-            </div>
-          ) : (
-            <>
-              <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-warning/30 bg-warning/10 px-3.5 py-2.5 text-sm text-warning">
-                <span>Деньги готовы к выплате — укажите реквизиты, куда их перечислить.</span>
-                <PayoutRequisitesDialog triggerLabel="Добавить реквизиты" />
-              </div>
-              {/* Баланс/запрос перевода имеет смысл только пока реквизиты не заданы — как только они
-                  есть, деньги уходят на карту автоматически (см. баннер выше), запрашивать больше нечего. */}
-              <DealBalance dealId={deal.id} transactions={transactions} transferRequests={transferRequests} />
-            </>
+          <PayoutTimeline deal={deal} transactions={transactions} payoutRequisites={payoutRequisites} />
+          {/* Баланс/запрос перевода имеет смысл только пока реквизиты не заданы — как только они
+              есть, деньги уходят на карту автоматически (см. вехи выше), запрашивать больше нечего. */}
+          {!payoutRequisites && (
+            <DealBalance dealId={deal.id} transactions={transactions} transferRequests={transferRequests} />
           )}
           <TransactionList transactions={transactions} payoutRequisites={payoutRequisites} />
         </section>

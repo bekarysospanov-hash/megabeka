@@ -4,11 +4,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { BackLink } from '../components/BackLink'
 import { PayoutRequisitesForm } from '../components/PayoutRequisitesForm'
-import { formatDate } from '../domain/statusLabels'
+import { formatDate, maskCard } from '../domain/statusLabels'
 import { useDemoActions, useDemoState } from '../store/DemoProvider'
 
 export function FurnitureMakerVerification() {
-  const { furnitureMakerVerification } = useDemoState()
+  const { furnitureMakerVerification, payoutRequisites } = useDemoState()
   const { setFurnitureMakerVerification } = useDemoActions()
 
   const [companyName, setCompanyName] = useState(furnitureMakerVerification?.companyName ?? '')
@@ -71,6 +71,11 @@ export function FurnitureMakerVerification() {
 
       <section className="grid gap-3 rounded-lg border p-5">
         <h2 className="text-sm font-semibold">Реквизиты для выплат</h2>
+        {payoutRequisites && (
+          <div className="rounded-md border border-success/30 bg-success/10 px-3.5 py-2.5 text-sm text-success">
+            Сейчас выплаты идут на карту {maskCard(payoutRequisites.cardNumber)} ({payoutRequisites.holderName})
+          </div>
+        )}
         <div className="max-w-sm">
           <PayoutRequisitesForm />
         </div>

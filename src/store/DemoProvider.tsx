@@ -24,10 +24,12 @@ import {
   signByClientSms as signByClientSmsFn,
   signByFurnitureMaker as signByFurnitureMakerFn,
   submitPayment as submitPaymentFn,
+  updateDealSpec as updateDealSpecFn,
 } from '../domain/dealMachine'
 import { generateId } from '../domain/id'
 import {
   buildClientAcceptedNotification,
+  buildDealUpdatedNotification,
   buildNotificationEvents,
   buildRevisionRequestedNotification,
 } from '../domain/notifications'
@@ -37,6 +39,7 @@ import type {
   Attachment,
   CreateDealInput,
   Deal,
+  DealSpecInput,
   DisputeLog,
   FurnitureMakerVerification,
   Message,
@@ -118,7 +121,9 @@ function isValidDemoState(value: unknown): value is DemoState {
     return false
   }
   return Object.values(v.deals as Record<string, unknown>).every(
-    (deal) => typeof (deal as Record<string, unknown>).guaranteeIssuedAt === 'string',
+    (deal) =>
+      typeof (deal as Record<string, unknown>).guaranteeIssuedAt === 'string' &&
+      typeof (deal as Record<string, unknown>).acceptedWithRemarks === 'boolean',
   )
 }
 
@@ -137,6 +142,7 @@ type Action =
   | { type: 'setRole'; role: Actor }
   | { type: 'resetDemo' }
   | { type: 'createDeal'; input: CreateDealInput }
+  | { type: 'updateDeal'; dealId: string; input: DealSpecInput }
   | { type: 'sendToClient'; dealId: string }
   | { type: 'onboardClient'; dealId: string; name: string; phone: string }
   | { type: 'clientAccepts'; dealId: string }
@@ -154,7 +160,7 @@ type Action =
   | { type: 'pay'; dealId: string }
   | { type: 'markProductionDone'; dealId: string }
   | { type: 'signActByFurnitureMaker'; dealId: string; code: string }
-  | { type: 'signAct'; dealId: string; code: string }
+  | { type: 'signAct'; dealId: string; code: string; remarks?: string | null }
   | { type: 'callOperator'; dealId: string; openedBy: Actor; reason: string }
   | { type: 'freezeDispute'; dealId: string }
   | { type: 'initiateRefund'; dealId: string }
@@ -193,6 +199,18 @@ function reducer(state: DemoState, action: Action): DemoState {
         ...state,
         deals: { ...state.deals, [deal.id]: deal },
         notifications: notify(state, deal.id, deal.status),
+      }
+    }
+    case 'updateDeal': {
+      const before = state.deals[action.dealId]
+      const deal = updateDealSpecFn(before, action.input)
+      return {
+        ...state,
+        deals: { ...state.deals, [deal.id]: deal },
+        notifications:
+          before.status === 'negotiation'
+            ? [...state.notifications, ...buildDealUpdatedNotification(deal.id)]
+            : state.notifications,
       }
     }
     case 'sendToClient': {
@@ -289,7 +307,7 @@ function reducer(state: DemoState, action: Action): DemoState {
     }
     case 'signAct': {
       const before = state.deals[action.dealId]
-      const { deal, transaction } = signActFn(before, action.code)
+      const { deal, transaction } = signActFn(before, action.code, action.remarks)
       return {
         ...state,
         deals: { ...state.deals, [deal.id]: deal },
@@ -494,6 +512,10 @@ export function useDemoActions() {
       (input: CreateDealInput) => dispatch({ type: 'createDeal', input }),
       [dispatch],
     ),
+    updateDeal: useCallback(
+      (dealId: string, input: DealSpecInput) => dispatch({ type: 'updateDeal', dealId, input }),
+      [dispatch],
+    ),
     sendToClient: useCallback(
       (dealId: string) => dispatch({ type: 'sendToClient', dealId }),
       [dispatch],
@@ -539,7 +561,8 @@ export function useDemoActions() {
       [dispatch],
     ),
     signAct: useCallback(
-      (dealId: string, code: string) => dispatch({ type: 'signAct', dealId, code }),
+      (dealId: string, code: string, remarks?: string | null) =>
+        dispatch({ type: 'signAct', dealId, code, remarks }),
       [dispatch],
     ),
     callOperator: useCallback(

@@ -34,7 +34,11 @@ export function DisputePanel({
           Причина: «{openDispute.reason}»
         </div>
       )}
-      {deal.frozen && <div className="text-sm font-semibold">Сделка заморожена оператором.</div>}
+      {deal.frozen && (
+        <div className="rounded-md border border-info/30 bg-info/10 px-3.5 py-2.5 text-sm text-info">
+          Заморожено — решение по спору теперь за оператором, менять условия сделки нельзя.
+        </div>
+      )}
       {(onFreeze || onRefund || onResolve) && (
         <div className="flex flex-wrap gap-2">
           {onFreeze && !deal.frozen && (

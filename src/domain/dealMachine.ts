@@ -3,12 +3,15 @@ import type {
   Actor,
   CreateDealInput,
   Deal,
+  DealSpecInput,
   DealStatus,
   DisputeLog,
   PaymentMethod,
   RevisionEntry,
   Transaction,
 } from './types'
+
+export const EDITABLE_STATUSES: DealStatus[] = ['draft', 'negotiation']
 
 export const ESCALATABLE_STATUSES: DealStatus[] = [
   'negotiation',
@@ -42,27 +45,29 @@ function assertStatus(deal: Deal, expected: DealStatus): void {
   }
 }
 
+function assertStatusOneOf(deal: Deal, expected: DealStatus[]): void {
+  if (!expected.includes(deal.status)) {
+    throw new Error(
+      `Недопустимый переход: сделка в статусе "${deal.status}", ожидался один из [${expected.join(', ')}]`,
+    )
+  }
+}
+
 function netAmount(deal: Deal, percent: number): number {
   const gross = (deal.amount * percent) / 100
   const commission = (gross * deal.commissionPercent) / 100
   return gross - commission
 }
 
-export function createDeal(input: CreateDealInput): Deal {
-  const id = input.id ?? generateDealId()
+function specFields(input: DealSpecInput) {
   return {
-    id,
-    slug: id,
-    furnitureMakerId: input.furnitureMakerId,
-    contactName: input.contactName ?? null,
-    contactPhone: input.contactPhone ?? null,
-    clientName: null,
-    clientPhone: null,
     title: input.title,
     amount: input.amount,
     prepaymentPercent: input.prepaymentPercent,
     finalPercent: input.finalPercent,
     commissionPercent: input.commissionPercent,
+    contactName: input.contactName ?? null,
+    contactPhone: input.contactPhone ?? null,
     category: input.category ?? null,
     hasUpholstery: input.hasUpholstery ?? false,
     widthCm: input.widthCm ?? null,
@@ -74,6 +79,41 @@ export function createDeal(input: CreateDealInput): Deal {
     qualityTier: input.qualityTier ?? null,
     hardwareTier: input.hardwareTier ?? null,
     estimatedProductionDays: input.estimatedProductionDays ?? null,
+  }
+}
+
+export function dealToSpecInput(deal: Deal): DealSpecInput {
+  return {
+    title: deal.title,
+    amount: deal.amount,
+    prepaymentPercent: deal.prepaymentPercent,
+    finalPercent: deal.finalPercent,
+    commissionPercent: deal.commissionPercent,
+    contactName: deal.contactName,
+    contactPhone: deal.contactPhone,
+    category: deal.category,
+    hasUpholstery: deal.hasUpholstery,
+    widthCm: deal.widthCm,
+    heightCm: deal.heightCm,
+    depthCm: deal.depthCm,
+    lengthCm: deal.lengthCm,
+    material: deal.material,
+    finish: deal.finish,
+    qualityTier: deal.qualityTier,
+    hardwareTier: deal.hardwareTier,
+    estimatedProductionDays: deal.estimatedProductionDays,
+  }
+}
+
+export function createDeal(input: CreateDealInput): Deal {
+  const id = input.id ?? generateDealId()
+  return {
+    id,
+    slug: id,
+    furnitureMakerId: input.furnitureMakerId,
+    clientName: null,
+    clientPhone: null,
+    ...specFields(input),
     status: 'draft',
     previousStatus: null,
     frozen: false,
@@ -81,6 +121,19 @@ export function createDeal(input: CreateDealInput): Deal {
     paymentMethod: null,
     statusHistory: [{ status: 'draft', at: new Date().toISOString() }],
     guaranteeIssuedAt: new Date().toISOString(),
+    acceptedWithRemarks: false,
+    acceptanceRemarks: null,
+  }
+}
+
+export function updateDealSpec(deal: Deal, input: DealSpecInput): Deal {
+  assertStatusOneOf(deal, EDITABLE_STATUSES)
+  return {
+    ...deal,
+    // Условия изменились после того, как деньги/статус уже могли зависеть от согласия клиента —
+    // повторное согласие обязательно, иначе клиент может принять устаревшие условия.
+    clientAccepted: deal.status === 'negotiation' ? false : deal.clientAccepted,
+    ...specFields(input),
   }
 }
 
@@ -159,7 +212,11 @@ export function signActByFurnitureMaker(deal: Deal, _code: string): Deal {
   return withStatus(deal, 'act_signing')
 }
 
-export function signAct(deal: Deal, _code: string): { deal: Deal; transaction: Transaction } {
+export function signAct(
+  deal: Deal,
+  _code: string,
+  remarks?: string | null,
+): { deal: Deal; transaction: Transaction } {
   assertStatus(deal, 'act_signing')
   const transaction: Transaction = {
     dealId: deal.id,
@@ -168,7 +225,14 @@ export function signAct(deal: Deal, _code: string): { deal: Deal; transaction: T
     status: 'paid',
     paidAt: new Date().toISOString(),
   }
-  const completed = withStatus(withStatus(deal, 'act_signed'), 'completed')
+  const trimmedRemarks = remarks?.trim() || null
+  const completed = withStatus(
+    withStatus(
+      { ...deal, acceptedWithRemarks: trimmedRemarks !== null, acceptanceRemarks: trimmedRemarks },
+      'act_signed',
+    ),
+    'completed',
+  )
   return { deal: completed, transaction }
 }
 

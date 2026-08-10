@@ -16,11 +16,11 @@ import { StepGuidanceCard } from '../components/StepGuidanceCard'
 import { DealProgressBar } from '../components/DealProgressBar'
 import { KeyTermsSummary } from '../components/KeyTermsSummary'
 import { ProductionTimer } from '../components/ProductionTimer'
+import { RevisionRequestForm } from '../components/RevisionRequestForm'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ESCALATABLE_STATUSES } from '../domain/dealMachine'
 import { generateActText, generateContractText } from '../domain/contractTemplate'
 import { formatMoney } from '../domain/statusLabels'
@@ -122,19 +122,12 @@ function ClientDealScreen({ dealId }: { dealId: string }) {
     signAct,
     callOperator,
     addAttachment,
+    addMessage,
   } = useDemoActions()
 
-  const [revisionField, setRevisionField] = useState<'amount' | 'deadline'>('amount')
-  const [revisionNewValue, setRevisionNewValue] = useState('')
-  const [revisionComment, setRevisionComment] = useState('')
   const [showRevisionForm, setShowRevisionForm] = useState(false)
   const [operatorReason, setOperatorReason] = useState('')
-
-  function closeRevisionForm() {
-    setShowRevisionForm(false)
-    setRevisionNewValue('')
-    setRevisionComment('')
-  }
+  const [acceptanceRemarks, setAcceptanceRemarks] = useState('')
 
   return (
     <div className="grid gap-6">
@@ -181,47 +174,16 @@ function ClientDealScreen({ dealId }: { dealId: string }) {
             </Button>
           </div>
           {showRevisionForm && (
-            <div className="grid gap-3 rounded-lg border p-4">
-              <Select value={revisionField} onValueChange={(v) => setRevisionField(v as 'amount' | 'deadline')}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="amount">Сумма</SelectItem>
-                  <SelectItem value="deadline">Срок изготовления</SelectItem>
-                </SelectContent>
-              </Select>
-              <Input
-                value={revisionNewValue}
-                onChange={(e) => setRevisionNewValue(e.target.value)}
-                placeholder="Новое значение"
-              />
-              <Input
-                value={revisionComment}
-                onChange={(e) => setRevisionComment(e.target.value)}
-                placeholder="Комментарий (необязательно)"
-              />
-              <div className="flex gap-2">
-                <Button
-                  disabled={!revisionNewValue.trim()}
-                  onClick={() => {
-                    requestRevision(
-                      deal.id,
-                      revisionField,
-                      revisionField === 'amount' ? String(deal.amount) : '—',
-                      revisionNewValue.trim(),
-                      revisionComment.trim(),
-                    )
-                    closeRevisionForm()
-                  }}
-                >
-                  Отправить правку
-                </Button>
-                <Button variant="ghost" onClick={closeRevisionForm}>
-                  Отмена
-                </Button>
-              </div>
-            </div>
+            <RevisionRequestForm
+              deal={deal}
+              onCancel={() => setShowRevisionForm(false)}
+              onSubmit={(revisions, comment) => {
+                for (const revision of revisions) {
+                  requestRevision(deal.id, revision.field, revision.oldValue, revision.newValue, comment)
+                }
+                setShowRevisionForm(false)
+              }}
+            />
           )}
         </div>
       )}
@@ -271,12 +233,23 @@ function ClientDealScreen({ dealId }: { dealId: string }) {
       )}
 
       {deal.status === 'act_signing' && (
-        <SignDocumentDialog
-          documentTitle={`Акт приёма-передачи к договору № ${deal.slug}`}
-          documentText={generateActText(deal)}
-          triggerLabel="Посмотреть и подписать акт"
-          onSign={(code) => signAct(deal.id, code)}
-        />
+        <div className="grid gap-3">
+          <div className="grid gap-1.5">
+            <Label htmlFor="acceptance-remarks">Комментарий к приёмке (если есть недочёты)</Label>
+            <Textarea
+              id="acceptance-remarks"
+              value={acceptanceRemarks}
+              onChange={(e) => setAcceptanceRemarks(e.target.value)}
+              placeholder="Например: скол на дверце — необязательно, если недочётов нет"
+            />
+          </div>
+          <SignDocumentDialog
+            documentTitle={`Акт приёма-передачи к договору № ${deal.slug}`}
+            documentText={generateActText(deal)}
+            triggerLabel="Посмотреть и подписать акт"
+            onSign={(code) => signAct(deal.id, code, acceptanceRemarks.trim() || null)}
+          />
+        </div>
       )}
 
       {deal.status === 'completed' && (
@@ -289,10 +262,10 @@ function ClientDealScreen({ dealId }: { dealId: string }) {
 
       <DisputePanel deal={deal} disputes={disputes} />
 
-      {(deal.status === 'dispute_open' || messages.length > 0) && (
+      {deal.status !== 'draft' && deal.status !== 'awaiting_client' && (
         <section>
-          <h2 className="mb-2 text-sm font-semibold">Переписка с оператором</h2>
-          <MessageThread messages={messages} />
+          <h2 className="mb-2 text-sm font-semibold">Переписка</h2>
+          <MessageThread messages={messages} onSend={(text) => addMessage(deal.id, 'client', text)} />
         </section>
       )}
 

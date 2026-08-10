@@ -35,6 +35,21 @@ export const HARDWARE_LABELS: Record<HardwareTier, string> = {
   unspecified: 'Не определено',
 }
 
+export const REVISION_FIELD_LABELS: Record<string, string> = {
+  amount: 'Сумма',
+  deadline: 'Срок изготовления',
+  title: 'Товар',
+  category: 'Тип мебели',
+  material: 'Материал',
+  finish: 'Цвет / отделка',
+  qualityTier: 'Качество',
+  hardwareTier: 'Фурнитура',
+  widthCm: 'Ширина',
+  heightCm: 'Высота',
+  depthCm: 'Глубина',
+  lengthCm: 'Длина',
+}
+
 export function formatDimensions(widthCm: number | null, heightCm: number | null, depthCm: number | null): string | null {
   const parts = [widthCm, heightCm, depthCm]
   if (parts.every((p) => p === null)) return null

@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
-  REVISION_FIELD_LABELS,
   buildClientAcceptedNotification,
   buildNotificationEvents,
   buildRevisionRequestedNotification,
 } from './notifications'
+import { REVISION_FIELD_LABELS } from './orderSpecLabels'
 import { stepGuidance } from './stepGuidance'
 import type { Actor } from './types'
 

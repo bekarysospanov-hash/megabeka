@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { useDeal, useDealHistory, useDemoActions } from '../store/DemoProvider'
+import { useDeal, useDealHistory, useDemoActions, useDemoState } from '../store/DemoProvider'
 import { StatusBadge } from '../components/StatusBadge'
 import { RevisionDiffList } from '../components/RevisionDiffList'
 import { TransactionList } from '../components/TransactionList'
@@ -11,7 +11,7 @@ import { BackLink } from '../components/BackLink'
 import { StepGuidanceCard } from '../components/StepGuidanceCard'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { STATUS_LABELS, formatMoney } from '../domain/statusLabels'
+import { STATUS_LABELS, formatDate, formatMoney } from '../domain/statusLabels'
 import type { DealStatus } from '../domain/types'
 
 // dispute_open и cancelled_refunded не включены: у них своя логика входа
@@ -25,6 +25,7 @@ export function OperatorDealDetail() {
   const { id } = useParams<{ id: string }>()
   const deal = useDeal(id)
   const { revisions, transactions, disputes, messages } = useDealHistory(id)
+  const { furnitureMakerVerification } = useDemoState()
   const { freezeDispute, initiateRefund, resolveDispute, operatorSetStatus, addMessage } = useDemoActions()
   const [manualStatus, setManualStatus] = useState<DealStatus | ''>('')
 
@@ -45,6 +46,23 @@ export function OperatorDealDetail() {
         </div>
         <StatusBadge status={deal.status} />
       </div>
+
+      {furnitureMakerVerification ? (
+        <div className="rounded-md border border-success/30 bg-success/10 px-3.5 py-2.5 text-sm text-success">
+          Мебельщик верифицирован: {furnitureMakerVerification.companyName} (БИН{' '}
+          {furnitureMakerVerification.businessId}), с {formatDate(furnitureMakerVerification.verifiedAt)}
+        </div>
+      ) : (
+        <div className="rounded-md border border-warning/30 bg-warning/10 px-3.5 py-2.5 text-sm text-warning">
+          Мебельщик не верифицирован
+        </div>
+      )}
+
+      {deal.acceptedWithRemarks && (
+        <div className="rounded-md border border-warning/30 bg-warning/10 px-3.5 py-2.5 text-sm text-warning">
+          Клиент принял с замечаниями: «{deal.acceptanceRemarks}»
+        </div>
+      )}
 
       <StepGuidanceCard status={deal.status} actor="operator" />
 

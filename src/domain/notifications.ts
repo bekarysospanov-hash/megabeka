@@ -1,13 +1,9 @@
 import { generateId } from './id'
+import { REVISION_FIELD_LABELS } from './orderSpecLabels'
 import { stepGuidance } from './stepGuidance'
 import type { Actor, DealStatus, NotificationEvent } from './types'
 
 const ACTORS: Actor[] = ['client', 'furniture_maker', 'operator']
-
-export const REVISION_FIELD_LABELS: Record<string, string> = {
-  amount: 'Сумма',
-  deadline: 'Срок изготовления',
-}
 
 export function buildNotificationEvents(dealId: string, status: DealStatus): NotificationEvent[] {
   const at = new Date().toISOString()
@@ -49,6 +45,25 @@ export function buildClientAcceptedNotification(dealId: string): NotificationEve
       id: generateId(),
       recipientRole: 'operator',
       text: 'Клиент согласился с условиями сделки',
+    },
+  ]
+}
+
+export function buildDealUpdatedNotification(dealId: string): NotificationEvent[] {
+  const at = new Date().toISOString()
+  const base = { dealId, status: 'negotiation' as const, at, read: false }
+  return [
+    {
+      ...base,
+      id: generateId(),
+      recipientRole: 'client',
+      text: 'Мебельщик обновил условия сделки — проверьте, пожалуйста',
+    },
+    {
+      ...base,
+      id: generateId(),
+      recipientRole: 'operator',
+      text: 'Мебельщик обновил условия сделки по запросу клиента',
     },
   ]
 }

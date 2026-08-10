@@ -16,6 +16,7 @@ import {
   signByClientSms,
   signByFurnitureMaker,
   submitPayment,
+  updateDealSpec,
 } from './dealMachine'
 import { seedScenarios } from './seedScenarios'
 import type { CreateDealInput, Deal } from './types'
@@ -77,6 +78,62 @@ describe('createDeal', () => {
     const issuedAt = new Date(deal.guaranteeIssuedAt).getTime()
     expect(issuedAt).toBeGreaterThanOrEqual(before)
     expect(issuedAt).toBeLessThanOrEqual(Date.now())
+  })
+})
+
+describe('updateDealSpec', () => {
+  it('обновляет поля спецификации черновика', () => {
+    const deal = updateDealSpec(createDeal(baseInput), {
+      title: 'Диван на заказ',
+      amount: 500_000,
+      prepaymentPercent: 50,
+      finalPercent: 50,
+      commissionPercent: 10,
+      contactName: 'Айгерим',
+      contactPhone: '+77009998877',
+      category: 'upholstered',
+      hasUpholstery: true,
+      widthCm: 200,
+      heightCm: 90,
+      depthCm: 100,
+      lengthCm: null,
+      material: 'other',
+      finish: 'серый велюр',
+      qualityTier: 'premium',
+      hardwareTier: 'standard',
+      estimatedProductionDays: 21,
+    })
+    expect(deal.title).toBe('Диван на заказ')
+    expect(deal.amount).toBe(500_000)
+    expect(deal.contactName).toBe('Айгерим')
+    expect(deal.category).toBe('upholstered')
+    expect(deal.hasUpholstery).toBe(true)
+    expect(deal.widthCm).toBe(200)
+    expect(deal.finish).toBe('серый велюр')
+    expect(deal.estimatedProductionDays).toBe(21)
+    expect(deal.status).toBe('draft')
+  })
+
+  it('не меняет статус и историю статусов', () => {
+    const before = createDeal(baseInput)
+    const after = updateDealSpec(before, { ...baseInput, title: 'Новое название' })
+    expect(after.status).toBe(before.status)
+    expect(after.statusHistory).toEqual(before.statusHistory)
+  })
+
+  it('бросает ошибку вне draft и negotiation', () => {
+    const deal = toAwaitingClient()
+    expect(() => updateDealSpec(deal, { ...baseInput })).toThrow()
+  })
+
+  it('работает в negotiation и сбрасывает clientAccepted, если клиент уже согласился', () => {
+    const accepted = clientAccepts(toNegotiation())
+    expect(accepted.clientAccepted).toBe(true)
+
+    const updated = updateDealSpec(accepted, { ...baseInput, amount: 900_000 })
+    expect(updated.status).toBe('negotiation')
+    expect(updated.amount).toBe(900_000)
+    expect(updated.clientAccepted).toBe(false)
   })
 })
 
@@ -188,6 +245,20 @@ describe('signAct', () => {
     expect(deal.status).toBe('completed')
     expect(deal.statusHistory.some((h) => h.status === 'act_signed')).toBe(true)
     expect(transaction.type).toBe('final')
+    expect(transaction.amount).toBe(450_000)
+  })
+
+  it('без замечаний — acceptedWithRemarks остаётся false', () => {
+    const { deal } = signAct(toActSigning(), '1234')
+    expect(deal.acceptedWithRemarks).toBe(false)
+    expect(deal.acceptanceRemarks).toBeNull()
+  })
+
+  it('с замечаниями — сохраняет флаг и текст, но не блокирует завершение сделки и выплату', () => {
+    const { deal, transaction } = signAct(toActSigning(), '1234', 'скол на дверце')
+    expect(deal.status).toBe('completed')
+    expect(deal.acceptedWithRemarks).toBe(true)
+    expect(deal.acceptanceRemarks).toBe('скол на дверце')
     expect(transaction.amount).toBe(450_000)
   })
 })

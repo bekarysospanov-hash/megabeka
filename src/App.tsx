@@ -5,7 +5,7 @@ import { ClientLayout } from './layouts/ClientLayout'
 import { FurnitureMakerDealsList } from './pages/FurnitureMakerDealsList'
 import { FurnitureMakerNewDeal } from './pages/FurnitureMakerNewDeal'
 import { FurnitureMakerDealDetail } from './pages/FurnitureMakerDealDetail'
-import { FurnitureMakerProfile } from './pages/FurnitureMakerProfile'
+import { FurnitureMakerEditDeal } from './pages/FurnitureMakerEditDeal'
 import { FurnitureMakerVerification } from './pages/FurnitureMakerVerification'
 import { ClientDealEntry } from './pages/ClientDealEntry'
 import { OperatorDealsList } from './pages/OperatorDealsList'
@@ -27,7 +27,7 @@ export default function App() {
             <Route path="furniture-maker" element={<FurnitureMakerDealsList />} />
             <Route path="furniture-maker/new" element={<FurnitureMakerNewDeal />} />
             <Route path="furniture-maker/deal/:id" element={<FurnitureMakerDealDetail />} />
-            <Route path="furniture-maker/profile" element={<FurnitureMakerProfile />} />
+            <Route path="furniture-maker/deal/:id/edit" element={<FurnitureMakerEditDeal />} />
             <Route path="furniture-maker/verification" element={<FurnitureMakerVerification />} />
             <Route path="operator" element={<OperatorDealsList />} />
             <Route path="operator/deal/:id" element={<OperatorDealDetail />} />
