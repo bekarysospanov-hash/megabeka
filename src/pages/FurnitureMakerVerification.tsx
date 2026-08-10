@@ -73,7 +73,8 @@ export function FurnitureMakerVerification() {
         <h2 className="text-sm font-semibold">Реквизиты для выплат</h2>
         {payoutRequisites && (
           <div className="rounded-md border border-success/30 bg-success/10 px-3.5 py-2.5 text-sm text-success">
-            Сейчас выплаты идут на карту {maskCard(payoutRequisites.cardNumber)} ({payoutRequisites.holderName})
+            Переводы по вашему запросу будут приходить на карту {maskCard(payoutRequisites.cardNumber)} (
+            {payoutRequisites.holderName})
           </div>
         )}
         <div className="max-w-sm">

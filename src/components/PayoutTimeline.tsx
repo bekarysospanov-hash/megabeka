@@ -1,7 +1,6 @@
 import { cn } from '@/lib/utils'
-import { PayoutRequisitesDialog } from './PayoutRequisitesDialog'
-import { formatDateTime, formatMoney, maskCard } from '../domain/statusLabels'
-import type { Deal, PayoutRequisites, Transaction } from '../domain/types'
+import { formatDateTime, formatMoney } from '../domain/statusLabels'
+import type { Deal, Transaction } from '../domain/types'
 
 function MilestoneDot({ done }: { done: boolean }) {
   return (
@@ -12,15 +11,7 @@ function MilestoneDot({ done }: { done: boolean }) {
   )
 }
 
-export function PayoutTimeline({
-  deal,
-  transactions,
-  payoutRequisites,
-}: {
-  deal: Deal
-  transactions: Transaction[]
-  payoutRequisites: PayoutRequisites | null
-}) {
+export function PayoutTimeline({ deal, transactions }: { deal: Deal; transactions: Transaction[] }) {
   const prepayment = transactions.find((t) => t.type === 'prepayment')
   const final = transactions.find((t) => t.type === 'final')
 
@@ -39,19 +30,14 @@ export function PayoutTimeline({
       </div>
 
       <div className="flex items-start gap-3 rounded-md border p-3 text-sm">
-        <MilestoneDot done={Boolean(prepayment) && Boolean(payoutRequisites)} />
+        <MilestoneDot done={Boolean(prepayment)} />
         <div className="flex-1">
-          <div className="font-medium">Доступно к получению</div>
-          {!prepayment && <div className="text-muted-foreground">Появится после поступления предоплаты</div>}
-          {prepayment && payoutRequisites && (
-            <div className="text-muted-foreground">Переведено на карту {maskCard(payoutRequisites.cardNumber)}</div>
-          )}
-          {prepayment && !payoutRequisites && (
-            <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2">
-              <span className="text-warning">Укажите реквизиты, чтобы получить деньги</span>
-              <PayoutRequisitesDialog triggerLabel="Добавить реквизиты" />
-            </div>
-          )}
+          <div className="font-medium">Деньги на счету</div>
+          <div className="text-muted-foreground">
+            {prepayment
+              ? 'Доступны к запросу — см. раздел «Баланс» ниже'
+              : 'Появятся после поступления предоплаты'}
+          </div>
         </div>
       </div>
 

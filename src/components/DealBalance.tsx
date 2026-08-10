@@ -2,19 +2,22 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { PayoutRequisitesDialog } from './PayoutRequisitesDialog'
 import { calculateAvailableBalance } from '../domain/balance'
-import { formatDateTime, formatMoney } from '../domain/statusLabels'
+import { formatDateTime, formatMoney, maskCard } from '../domain/statusLabels'
 import { useDemoActions } from '../store/DemoProvider'
-import type { Transaction, TransferRequest } from '../domain/types'
+import type { PayoutRequisites, Transaction, TransferRequest } from '../domain/types'
 
 export function DealBalance({
   dealId,
   transactions,
   transferRequests,
+  payoutRequisites,
 }: {
   dealId: string
   transactions: Transaction[]
   transferRequests: TransferRequest[]
+  payoutRequisites: PayoutRequisites | null
 }) {
   const { requestTransfer } = useDemoActions()
   const [amount, setAmount] = useState('')
@@ -24,12 +27,17 @@ export function DealBalance({
   const amountValue = Number(amount)
   const canRequest = amountValue > 0 && amountValue <= available && purpose.trim().length > 0
 
-  if (transactions.length === 0) return null
-
   return (
     <section className="grid gap-3 rounded-lg border p-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold">Баланс на счету Asia Mebel</h2>
+        <h2 className="text-sm font-semibold">
+          Баланс на счету Asia Mebel
+          {payoutRequisites && (
+            <span className="ml-2 font-normal text-muted-foreground">
+              · на карту {maskCard(payoutRequisites.cardNumber)}
+            </span>
+          )}
+        </h2>
         <span className="text-lg font-semibold">{formatMoney(available)}</span>
       </div>
       <p className="text-xs text-muted-foreground">
@@ -37,38 +45,45 @@ export function DealBalance({
         закуп материалов — остальное останется доступным для следующих запросов.
       </p>
 
-      <div className="grid gap-2 sm:grid-cols-[1fr_2fr_auto] sm:items-end">
-        <div className="grid gap-1.5">
-          <Label htmlFor="transfer-amount">Сумма, ₸</Label>
-          <Input
-            id="transfer-amount"
-            type="number"
-            min={0}
-            max={available}
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-          />
+      {payoutRequisites ? (
+        <div className="grid gap-2 sm:grid-cols-[1fr_2fr_auto] sm:items-end">
+          <div className="grid gap-1.5">
+            <Label htmlFor="transfer-amount">Сумма, ₸</Label>
+            <Input
+              id="transfer-amount"
+              type="number"
+              min={0}
+              max={available}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+            />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="transfer-purpose">Цель</Label>
+            <Input
+              id="transfer-purpose"
+              value={purpose}
+              onChange={(e) => setPurpose(e.target.value)}
+              placeholder="Например, закуп материалов"
+            />
+          </div>
+          <Button
+            disabled={!canRequest}
+            onClick={() => {
+              requestTransfer(dealId, amountValue, purpose.trim())
+              setAmount('')
+              setPurpose('')
+            }}
+          >
+            Запросить перевод
+          </Button>
         </div>
-        <div className="grid gap-1.5">
-          <Label htmlFor="transfer-purpose">Цель</Label>
-          <Input
-            id="transfer-purpose"
-            value={purpose}
-            onChange={(e) => setPurpose(e.target.value)}
-            placeholder="Например, закуп материалов"
-          />
+      ) : (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-warning/30 bg-warning/10 px-3.5 py-2.5 text-sm text-warning">
+          <span>Укажите реквизиты, чтобы запрашивать переводы на карту.</span>
+          <PayoutRequisitesDialog triggerLabel="Добавить реквизиты" />
         </div>
-        <Button
-          disabled={!canRequest}
-          onClick={() => {
-            requestTransfer(dealId, amountValue, purpose.trim())
-            setAmount('')
-            setPurpose('')
-          }}
-        >
-          Запросить перевод
-        </Button>
-      </div>
+      )}
 
       {transferRequests.length > 0 && (
         <div className="grid gap-1.5 border-t pt-3">

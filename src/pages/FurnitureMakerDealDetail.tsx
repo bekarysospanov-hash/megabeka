@@ -270,13 +270,14 @@ export function FurnitureMakerDealDetail() {
       {transactions.length > 0 && (
         <section className="grid gap-2">
           <h2 className="text-sm font-semibold">Выплаты</h2>
-          <PayoutTimeline deal={deal} transactions={transactions} payoutRequisites={payoutRequisites} />
-          {/* Баланс/запрос перевода имеет смысл только пока реквизиты не заданы — как только они
-              есть, деньги уходят на карту автоматически (см. вехи выше), запрашивать больше нечего. */}
-          {!payoutRequisites && (
-            <DealBalance dealId={deal.id} transactions={transactions} transferRequests={transferRequests} />
-          )}
-          <TransactionList transactions={transactions} payoutRequisites={payoutRequisites} />
+          <PayoutTimeline deal={deal} transactions={transactions} />
+          <DealBalance
+            dealId={deal.id}
+            transactions={transactions}
+            transferRequests={transferRequests}
+            payoutRequisites={payoutRequisites}
+          />
+          <TransactionList transactions={transactions} />
         </section>
       )}
 
