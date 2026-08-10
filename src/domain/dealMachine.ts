@@ -205,6 +205,14 @@ export function submitPayment(deal: Deal, method: PaymentMethod): Deal {
   return withStatus({ ...deal, paymentMethod: method }, 'payment_processing')
 }
 
+// Демо-отказ банка/таймаут при обработке платежа — не реальный сбой эквайринга, а
+// смоделированное состояние. Возвращает к выбору способа оплаты; paymentMethod сбрасывается,
+// потому что попытка не удалась и метод не считается подтверждённым.
+export function retryPayment(deal: Deal): Deal {
+  assertStatus(deal, 'payment_processing')
+  return withStatus({ ...deal, paymentMethod: null }, 'payment_pending')
+}
+
 export function pay(deal: Deal): { deal: Deal; transaction: Transaction } {
   assertStatus(deal, 'payment_processing')
   const transaction: Transaction = {

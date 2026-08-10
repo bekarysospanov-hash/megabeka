@@ -68,6 +68,11 @@ export function FurnitureMakerDealDetail() {
   const reserveShortfall = deal.amount - availableReserve
   const reserveExceeded = deal.status === 'draft' && reserveShortfall > 0
   const sendBlocked = missingRequisites || reserveExceeded
+  // Зона D (Коммуникация) не рендерится вовсе, если её содержимое целиком скрыто условиями
+  // ниже — иначе на draft/awaiting_client показывался бы пустой заголовок зоны без контента.
+  // CANCELLABLE/ESCALATABLE — подмножества "не draft и не awaiting_client", отдельно их
+  // проверять не нужно (свернулось бы к тому же самому, только менее явно).
+  const hasZoneD = deal.status !== 'draft' && deal.status !== 'awaiting_client'
 
   return (
     <div className="grid gap-6">
@@ -81,28 +86,12 @@ export function FurnitureMakerDealDetail() {
         <StatusBadge status={deal.status} />
       </div>
 
+      {/* Зона A — статус и следующий шаг: единственная гарантированно видна без скролла на
+          мобильном, поэтому выделена визуально сильнее остальных зон. */}
+      <section className="grid gap-4 rounded-xl border-2 border-primary/20 bg-primary/[0.03] p-4 sm:p-5">
       <DealProgressBar status={deal.status} />
 
       <StepGuidanceCard status={deal.status} actor="furniture_maker" />
-
-      {deal.status === 'draft' && !certificateSeen && (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-info/30 bg-info/10 px-3.5 py-2.5 text-sm text-info">
-          <span>По этой сделке оформлена гарантия Asia Mebel.</span>
-        </div>
-      )}
-
-      <div className="flex justify-end">
-        <GuaranteeCertificateDialog deal={deal} onOpen={() => setCertificateSeen(true)} />
-      </div>
-
-      <OrderSpecSummary deal={deal} />
-
-      {attachments.length > 0 && (
-        <section>
-          <h2 className="mb-2 text-sm font-semibold">Референсы от клиента</h2>
-          <AttachmentGallery attachments={attachments} />
-        </section>
-      )}
 
       {deal.status === 'draft' && (
         <div className="grid gap-3">
@@ -298,25 +287,36 @@ export function FurnitureMakerDealDetail() {
           Сделка отменена{deal.cancellationReason && `: «${deal.cancellationReason}»`}.
         </p>
       )}
+      </section>
 
-      <DisputePanel deal={deal} disputes={disputes} />
+      {/* Зона B — заказ */}
+      <section className="grid gap-4">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Заказ</h2>
 
-      {CANCELLABLE.has(deal.status) && (
+        {deal.status === 'draft' && !certificateSeen && (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-info/30 bg-info/10 px-3.5 py-2.5 text-sm text-info">
+            <span>По этой сделке оформлена гарантия Asia Mebel.</span>
+          </div>
+        )}
+
         <div className="flex justify-end">
-          <CancelDealDialog dealId={deal.id} actor="furniture_maker" triggerLabel="Не могу выполнить заказ" />
+          <GuaranteeCertificateDialog deal={deal} onOpen={() => setCertificateSeen(true)} />
         </div>
-      )}
 
-      {deal.status !== 'draft' && deal.status !== 'awaiting_client' && (
-        <section>
-          <h2 className="mb-2 text-sm font-semibold">Переписка</h2>
-          <MessageThread messages={messages} onSend={(text) => addMessage(deal.id, 'furniture_maker', text)} />
-        </section>
-      )}
+        <OrderSpecSummary deal={deal} />
 
+        {attachments.length > 0 && (
+          <section>
+            <h3 className="mb-2 text-sm font-semibold">Референсы от клиента</h3>
+            <AttachmentGallery attachments={attachments} />
+          </section>
+        )}
+      </section>
+
+      {/* Зона C — деньги */}
       {transactions.length > 0 && (
         <section className="grid gap-2">
-          <h2 className="text-sm font-semibold">Выплаты</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Деньги</h2>
           <PayoutTimeline deal={deal} transactions={transactions} />
           <DealBalance
             dealId={deal.id}
@@ -328,26 +328,48 @@ export function FurnitureMakerDealDetail() {
         </section>
       )}
 
-      {ESCALATABLE.has(deal.status) && (
-        <section className="grid gap-2">
-          <h2 className="text-sm font-semibold">Позвать оператора</h2>
-          <DemoModeBanner>Оператор реально не уведомляется — это демонстрация вмешательства.</DemoModeBanner>
-          <Textarea
-            value={operatorReason}
-            onChange={(e) => setOperatorReason(e.target.value)}
-            placeholder="Опишите проблему, например: клиент не выходит на связь"
-          />
-          <Button
-            variant="outline"
-            className="w-fit"
-            disabled={!operatorReason.trim()}
-            onClick={() => {
-              callOperator(deal.id, 'furniture_maker', operatorReason.trim())
-              setOperatorReason('')
-            }}
-          >
-            Сообщить о проблеме
-          </Button>
+      {/* Зона D — коммуникация и выход из сделки */}
+      {hasZoneD && (
+        <section className="grid gap-4">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Коммуникация</h2>
+
+          <DisputePanel deal={deal} disputes={disputes} />
+
+          {CANCELLABLE.has(deal.status) && (
+            <div className="flex justify-end">
+              <CancelDealDialog dealId={deal.id} actor="furniture_maker" triggerLabel="Не могу выполнить заказ" />
+            </div>
+          )}
+
+          {deal.status !== 'draft' && deal.status !== 'awaiting_client' && (
+            <section>
+              <h3 className="mb-2 text-sm font-semibold">Переписка</h3>
+              <MessageThread messages={messages} onSend={(text) => addMessage(deal.id, 'furniture_maker', text)} />
+            </section>
+          )}
+
+          {ESCALATABLE.has(deal.status) && (
+            <section className="grid gap-2">
+              <h3 className="text-sm font-semibold">Позвать оператора</h3>
+              <DemoModeBanner>Оператор реально не уведомляется — это демонстрация вмешательства.</DemoModeBanner>
+              <Textarea
+                value={operatorReason}
+                onChange={(e) => setOperatorReason(e.target.value)}
+                placeholder="Опишите проблему, например: клиент не выходит на связь"
+              />
+              <Button
+                variant="outline"
+                className="w-fit"
+                disabled={!operatorReason.trim()}
+                onClick={() => {
+                  callOperator(deal.id, 'furniture_maker', operatorReason.trim())
+                  setOperatorReason('')
+                }}
+              >
+                Сообщить о проблеме
+              </Button>
+            </section>
+          )}
         </section>
       )}
     </div>

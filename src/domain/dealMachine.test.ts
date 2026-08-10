@@ -12,6 +12,7 @@ import {
   pay,
   requestRevision,
   resolveDispute,
+  retryPayment,
   sendToClient,
   signAct,
   signActByFurnitureMaker,
@@ -312,6 +313,19 @@ describe('resolveDispute', () => {
     const resolved = resolveDispute(frozen)
     expect(resolved.status).toBe('in_production')
     expect(resolved.frozen).toBe(false)
+  })
+})
+
+describe('retryPayment', () => {
+  it('недоступен вне payment_processing', () => {
+    expect(() => retryPayment(toPaymentPending())).toThrow()
+    expect(() => retryPayment(toInProduction())).toThrow()
+  })
+
+  it('возвращает payment_processing в payment_pending и сбрасывает paymentMethod', () => {
+    const deal = retryPayment(toPaymentProcessing())
+    expect(deal.status).toBe('payment_pending')
+    expect(deal.paymentMethod).toBeNull()
   })
 })
 

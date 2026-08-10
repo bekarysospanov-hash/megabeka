@@ -7,6 +7,8 @@ import { DemoModeBanner } from './DemoModeBanner'
 import { formatMoney } from '../domain/statusLabels'
 import type { PaymentMethod } from '../domain/types'
 
+type PaymentOutcome = 'pending' | 'declined' | 'timeout'
+
 const BANKS = ['Kaspi Bank', 'Halyk Bank', 'Bank CenterCredit']
 
 export function PaymentMethodPicker({
@@ -74,7 +76,45 @@ export function PaymentMethodPicker({
   )
 }
 
-export function PaymentProcessing({ method, onConfirm }: { method: PaymentMethod | null; onConfirm: () => void }) {
+export function PaymentProcessing({
+  method,
+  onConfirm,
+  onRetry,
+}: {
+  method: PaymentMethod | null
+  onConfirm: () => void
+  onRetry: () => void
+}) {
+  const [outcome, setOutcome] = useState<PaymentOutcome>('pending')
+
+  if (outcome === 'declined') {
+    return (
+      <div className="grid gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+        <p className="text-sm font-semibold text-destructive">Банк отклонил платёж</p>
+        <p className="text-sm text-muted-foreground">
+          Попробуйте другую карту или способ оплаты — деньги не списаны.
+        </p>
+        <Button variant="outline" className="w-fit" onClick={onRetry}>
+          Попробовать снова
+        </Button>
+      </div>
+    )
+  }
+
+  if (outcome === 'timeout') {
+    return (
+      <div className="grid gap-3 rounded-lg border border-warning/30 bg-warning/10 p-4">
+        <p className="text-sm font-semibold text-warning">Не дождались подтверждения от банка</p>
+        <p className="text-sm text-muted-foreground">
+          Обработка заняла слишком много времени. Деньги не списаны — можно попробовать ещё раз.
+        </p>
+        <Button variant="outline" className="w-fit" onClick={onRetry}>
+          Попробовать снова
+        </Button>
+      </div>
+    )
+  }
+
   return (
     <div className="grid gap-3 rounded-lg border p-4">
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -82,11 +122,17 @@ export function PaymentProcessing({ method, onConfirm }: { method: PaymentMethod
         {method === 'bank' ? 'Ожидаем подтверждения от банка…' : 'Обрабатываем платёж…'}
       </div>
       <DemoModeBanner>
-        В реальности подтверждение приходит автоматически из банка/эквайринга — здесь эмулируем кнопкой.
+        В реальности результат приходит автоматически из банка/эквайринга — здесь эмулируем кнопками.
       </DemoModeBanner>
-      <Button variant="outline" onClick={onConfirm} className="w-fit">
-        Демо: подтвердить оплату
-      </Button>
+      <div className="flex flex-wrap gap-2">
+        <Button onClick={onConfirm}>Демо: успешная оплата</Button>
+        <Button variant="outline" onClick={() => setOutcome('declined')}>
+          Демо: отказ банка
+        </Button>
+        <Button variant="outline" onClick={() => setOutcome('timeout')}>
+          Демо: таймаут
+        </Button>
+      </div>
     </div>
   )
 }

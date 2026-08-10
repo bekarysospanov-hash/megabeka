@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildClientAcceptedNotification,
   buildNotificationEvents,
+  buildPaymentRetryNotification,
   buildRevisionRequestedNotification,
 } from './notifications'
 import { REVISION_FIELD_LABELS } from './orderSpecLabels'
@@ -39,6 +40,19 @@ describe('buildClientAcceptedNotification', () => {
       expect(event.dealId).toBe('deal-1')
       expect(event.read).toBe(false)
       expect(event.text).not.toBe(stepGuidance.negotiation?.[event.recipientRole]?.title)
+    }
+  })
+})
+
+describe('buildPaymentRetryNotification', () => {
+  it('адресовано мебельщику и оператору, у обоих текст отличается от общего текста статуса payment_pending', () => {
+    const events = buildPaymentRetryNotification('deal-1')
+    expect(events.map((e) => e.recipientRole).sort()).toEqual(['furniture_maker', 'operator'])
+    for (const event of events) {
+      expect(event.dealId).toBe('deal-1')
+      expect(event.status).toBe('payment_pending')
+      expect(event.read).toBe(false)
+      expect(event.text).not.toBe(stepGuidance.payment_pending?.[event.recipientRole]?.title)
     }
   })
 })

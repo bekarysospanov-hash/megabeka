@@ -20,6 +20,7 @@ import {
   pay as payFn,
   requestRevision as requestRevisionFn,
   resolveDispute as resolveDisputeFn,
+  retryPayment as retryPaymentFn,
   sendToClient as sendToClientFn,
   signAct as signActFn,
   signActByFurnitureMaker as signActByFurnitureMakerFn,
@@ -33,6 +34,7 @@ import {
   buildClientAcceptedNotification,
   buildDealUpdatedNotification,
   buildNotificationEvents,
+  buildPaymentRetryNotification,
   buildRevisionRequestedNotification,
 } from '../domain/notifications'
 import { seedScenarios } from '../domain/seedScenarios'
@@ -170,6 +172,7 @@ type Action =
   | { type: 'resolveDispute'; dealId: string }
   | { type: 'cancelDeal'; dealId: string; actor: Actor; reason: string }
   | { type: 'confirmMeasurement'; dealId: string }
+  | { type: 'retryPayment'; dealId: string }
   | { type: 'operatorSetStatus'; dealId: string; status: Deal['status'] }
   | { type: 'addMessage'; dealId: string; author: Actor; text: string }
   | { type: 'addAttachment'; dealId: string; dataUrl: string; addedBy: Actor }
@@ -368,6 +371,14 @@ function reducer(state: DemoState, action: Action): DemoState {
     case 'confirmMeasurement': {
       const deal = confirmMeasurementFn(state.deals[action.dealId])
       return { ...state, deals: { ...state.deals, [deal.id]: deal } }
+    }
+    case 'retryPayment': {
+      const deal = retryPaymentFn(state.deals[action.dealId])
+      return {
+        ...state,
+        deals: { ...state.deals, [deal.id]: deal },
+        notifications: [...state.notifications, ...buildPaymentRetryNotification(deal.id)],
+      }
     }
     case 'operatorSetStatus': {
       const current = state.deals[action.dealId]
@@ -607,6 +618,10 @@ export function useDemoActions() {
     ),
     confirmMeasurement: useCallback(
       (dealId: string) => dispatch({ type: 'confirmMeasurement', dealId }),
+      [dispatch],
+    ),
+    retryPayment: useCallback(
+      (dealId: string) => dispatch({ type: 'retryPayment', dealId }),
       [dispatch],
     ),
     operatorSetStatus: useCallback(

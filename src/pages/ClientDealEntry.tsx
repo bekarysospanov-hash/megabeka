@@ -122,6 +122,7 @@ function ClientDealScreen({ dealId }: { dealId: string }) {
     signByClientSms,
     submitPayment,
     pay,
+    retryPayment,
     signAct,
     callOperator,
     addAttachment,
@@ -218,7 +219,11 @@ function ClientDealScreen({ dealId }: { dealId: string }) {
       )}
 
       {deal.status === 'payment_processing' && (
-        <PaymentProcessing method={deal.paymentMethod} onConfirm={() => pay(deal.id)} />
+        <PaymentProcessing
+          method={deal.paymentMethod}
+          onConfirm={() => pay(deal.id)}
+          onRetry={() => retryPayment(deal.id)}
+        />
       )}
 
       {(deal.status === 'paid' || deal.status === 'in_production') && (

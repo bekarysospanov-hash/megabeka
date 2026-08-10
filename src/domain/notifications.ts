@@ -68,6 +68,28 @@ export function buildDealUpdatedNotification(dealId: string): NotificationEvent[
   ]
 }
 
+// payment_processing -> payment_pending при retryPayment — обычный notify() по статусу
+// повторил бы тот же текст, что уже приходил при первом входе в payment_pending, ничего
+// не сообщая о неудачной попытке.
+export function buildPaymentRetryNotification(dealId: string): NotificationEvent[] {
+  const at = new Date().toISOString()
+  const base = { dealId, status: 'payment_pending' as const, at, read: false }
+  return [
+    {
+      ...base,
+      id: generateId(),
+      recipientRole: 'furniture_maker',
+      text: 'Оплата не прошла — клиент выбирает способ оплаты заново',
+    },
+    {
+      ...base,
+      id: generateId(),
+      recipientRole: 'operator',
+      text: 'Оплата не прошла — клиент повторяет попытку',
+    },
+  ]
+}
+
 export function buildRevisionRequestedNotification(dealId: string, field: string): NotificationEvent[] {
   const label = REVISION_FIELD_LABELS[field] ?? field
   const at = new Date().toISOString()
