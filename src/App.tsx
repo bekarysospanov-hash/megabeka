@@ -6,6 +6,7 @@ import { FurnitureMakerDealsList } from './pages/FurnitureMakerDealsList'
 import { FurnitureMakerNewDeal } from './pages/FurnitureMakerNewDeal'
 import { FurnitureMakerDealDetail } from './pages/FurnitureMakerDealDetail'
 import { FurnitureMakerEditDeal } from './pages/FurnitureMakerEditDeal'
+import { FurnitureMakerBalance } from './pages/FurnitureMakerBalance'
 import { FurnitureMakerVerification } from './pages/FurnitureMakerVerification'
 import { ClientDealEntry } from './pages/ClientDealEntry'
 import { OperatorDealsList } from './pages/OperatorDealsList'
@@ -28,6 +29,7 @@ export default function App() {
             <Route path="furniture-maker/new" element={<FurnitureMakerNewDeal />} />
             <Route path="furniture-maker/deal/:id" element={<FurnitureMakerDealDetail />} />
             <Route path="furniture-maker/deal/:id/edit" element={<FurnitureMakerEditDeal />} />
+            <Route path="furniture-maker/balance" element={<FurnitureMakerBalance />} />
             <Route path="furniture-maker/verification" element={<FurnitureMakerVerification />} />
             <Route path="operator" element={<OperatorDealsList />} />
             <Route path="operator/deal/:id" element={<OperatorDealDetail />} />

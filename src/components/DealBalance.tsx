@@ -13,11 +13,13 @@ export function DealBalance({
   transactions,
   transferRequests,
   payoutRequisites,
+  showRequisitesPrompt = true,
 }: {
   dealId: string
   transactions: Transaction[]
   transferRequests: TransferRequest[]
   payoutRequisites: PayoutRequisites | null
+  showRequisitesPrompt?: boolean
 }) {
   const { requestTransfer } = useDemoActions()
   const [amount, setAmount] = useState('')
@@ -26,6 +28,11 @@ export function DealBalance({
   const available = calculateAvailableBalance(dealId, transactions, transferRequests)
   const amountValue = Number(amount)
   const canRequest = amountValue > 0 && amountValue <= available && purpose.trim().length > 0
+
+  const requestProblems: string[] = []
+  if (amountValue <= 0) requestProblems.push('сумму больше нуля')
+  else if (amountValue > available) requestProblems.push(`сумму не больше доступного баланса (${formatMoney(available)})`)
+  if (purpose.trim().length === 0) requestProblems.push('цель перевода')
 
   return (
     <section className="grid gap-3 rounded-lg border p-4">
@@ -77,12 +84,17 @@ export function DealBalance({
           >
             Запросить перевод
           </Button>
+          {requestProblems.length > 0 && (amount || purpose) && (
+            <p className="col-span-full text-xs text-warning">Укажите {requestProblems.join(' и ')}.</p>
+          )}
         </div>
       ) : (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-warning/30 bg-warning/10 px-3.5 py-2.5 text-sm text-warning">
-          <span>Укажите реквизиты, чтобы запрашивать переводы на карту.</span>
-          <PayoutRequisitesDialog triggerLabel="Добавить реквизиты" />
-        </div>
+        showRequisitesPrompt && (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-warning/30 bg-warning/10 px-3.5 py-2.5 text-sm text-warning">
+            <span>Укажите реквизиты, чтобы запрашивать переводы на карту.</span>
+            <PayoutRequisitesDialog triggerLabel="Добавить реквизиты" />
+          </div>
+        )
       )}
 
       {transferRequests.length > 0 && (

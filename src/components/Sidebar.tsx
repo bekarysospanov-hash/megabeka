@@ -12,6 +12,7 @@ interface NavItem {
 const FURNITURE_MAKER_NAV: NavItem[] = [
   { to: '/furniture-maker', label: 'Мои сделки', icon: LayoutList, exact: true },
   { to: '/furniture-maker/new', label: 'Новая сделка', icon: PlusCircle },
+  { to: '/furniture-maker/balance', label: 'Баланс', icon: Wallet, exact: true },
   { to: '/furniture-maker/verification', label: 'Безопасная сделка', icon: BadgeCheck, exact: true },
 ]
 
