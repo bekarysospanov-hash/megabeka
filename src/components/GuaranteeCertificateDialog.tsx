@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -14,7 +14,7 @@ import type { Deal } from '../domain/types'
 export const GUARANTEE_SEEN_STORAGE_KEY = 'asia-mebel-guarantee-seen-v1'
 const SEEN_KEY = GUARANTEE_SEEN_STORAGE_KEY
 
-function hasSeenCertificate(dealId: string): boolean {
+export function hasSeenCertificate(dealId: string): boolean {
   try {
     const raw = window.localStorage.getItem(SEEN_KEY)
     const seen: string[] = raw ? JSON.parse(raw) : []
@@ -39,22 +39,24 @@ function markCertificateSeen(dealId: string): void {
 export function GuaranteeCertificateDialog({
   deal,
   triggerLabel = 'Посмотреть сертификат гарантии',
+  onOpen,
 }: {
   deal: Deal
   triggerLabel?: string
+  onOpen?: () => void
 }) {
   const [open, setOpen] = useState(false)
 
-  useEffect(() => {
-    if (deal.status === 'draft' && !hasSeenCertificate(deal.id)) {
-      setOpen(true)
-      markCertificateSeen(deal.id)
-    }
-  }, [deal.id, deal.status])
-
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <Button variant="outline" onClick={() => setOpen(true)}>
+      <Button
+        variant="outline"
+        onClick={() => {
+          setOpen(true)
+          markCertificateSeen(deal.id)
+          onOpen?.()
+        }}
+      >
         {triggerLabel}
       </Button>
       <DialogContent className="max-h-[85vh] grid-rows-[auto_1fr_auto] overflow-hidden">

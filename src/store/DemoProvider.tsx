@@ -9,7 +9,9 @@ import {
 } from 'react'
 import {
   callOperator as callOperatorFn,
+  cancelDeal as cancelDealFn,
   clientAccepts as clientAcceptsFn,
+  confirmMeasurement as confirmMeasurementFn,
   createDeal as createDealFn,
   freezeDispute as freezeDisputeFn,
   initiateRefund as initiateRefundFn,
@@ -123,7 +125,8 @@ function isValidDemoState(value: unknown): value is DemoState {
   return Object.values(v.deals as Record<string, unknown>).every(
     (deal) =>
       typeof (deal as Record<string, unknown>).guaranteeIssuedAt === 'string' &&
-      typeof (deal as Record<string, unknown>).acceptedWithRemarks === 'boolean',
+      typeof (deal as Record<string, unknown>).acceptedWithRemarks === 'boolean' &&
+      'measurementConfirmedAt' in (deal as Record<string, unknown>),
   )
 }
 
@@ -165,6 +168,8 @@ type Action =
   | { type: 'freezeDispute'; dealId: string }
   | { type: 'initiateRefund'; dealId: string }
   | { type: 'resolveDispute'; dealId: string }
+  | { type: 'cancelDeal'; dealId: string; actor: Actor; reason: string }
+  | { type: 'confirmMeasurement'; dealId: string }
   | { type: 'operatorSetStatus'; dealId: string; status: Deal['status'] }
   | { type: 'addMessage'; dealId: string; author: Actor; text: string }
   | { type: 'addAttachment'; dealId: string; dataUrl: string; addedBy: Actor }
@@ -350,6 +355,19 @@ function reducer(state: DemoState, action: Action): DemoState {
         ),
         notifications: notify(state, deal.id, deal.status),
       }
+    }
+    case 'cancelDeal': {
+      const before = state.deals[action.dealId]
+      const deal = cancelDealFn(before, action.actor, action.reason)
+      return {
+        ...state,
+        deals: { ...state.deals, [deal.id]: deal },
+        notifications: notifyForTransition(state, before, deal),
+      }
+    }
+    case 'confirmMeasurement': {
+      const deal = confirmMeasurementFn(state.deals[action.dealId])
+      return { ...state, deals: { ...state.deals, [deal.id]: deal } }
     }
     case 'operatorSetStatus': {
       const current = state.deals[action.dealId]
@@ -580,6 +598,15 @@ export function useDemoActions() {
     ),
     resolveDispute: useCallback(
       (dealId: string) => dispatch({ type: 'resolveDispute', dealId }),
+      [dispatch],
+    ),
+    cancelDeal: useCallback(
+      (dealId: string, actor: Actor, reason: string) =>
+        dispatch({ type: 'cancelDeal', dealId, actor, reason }),
+      [dispatch],
+    ),
+    confirmMeasurement: useCallback(
+      (dealId: string) => dispatch({ type: 'confirmMeasurement', dealId }),
       [dispatch],
     ),
     operatorSetStatus: useCallback(

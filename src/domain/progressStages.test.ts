@@ -5,7 +5,7 @@ import { STATUS_LABELS } from './statusLabels'
 import type { CreateDealInput, Deal, DealStatus } from './types'
 
 const ALL_STATUSES = Object.keys(STATUS_LABELS) as DealStatus[]
-const OFF_TRACK_STATUSES: DealStatus[] = ['dispute_open', 'cancelled_refunded']
+const OFF_TRACK_STATUSES: DealStatus[] = ['dispute_open', 'cancelled_refunded', 'cancelled']
 const NORMAL_STATUSES = ALL_STATUSES.filter((s) => !OFF_TRACK_STATUSES.includes(s))
 
 const baseInput: CreateDealInput = {
@@ -64,6 +64,10 @@ describe('getProgressStageIndex', () => {
     expect(getProgressStageIndex('cancelled_refunded')).toBeNull()
   })
 
+  it('cancelled возвращает null', () => {
+    expect(getProgressStageIndex('cancelled')).toBeNull()
+  })
+
   it('индексы монотонно возрастают по счастливому пути', () => {
     const draft = getProgressStageIndex('draft')!
     const contractSigning = getProgressStageIndex('contract_signing')!
@@ -104,12 +108,14 @@ describe('groupDealsByStage', () => {
     expect(paymentGroup.deals).toEqual([dealA, dealB])
   })
 
-  it('сделки в dispute_open/cancelled_refunded не входят ни в одну стадию', () => {
+  it('сделки в dispute_open/cancelled_refunded/cancelled не входят ни в одну стадию', () => {
     const disputed = dealWith('dispute_open')
-    const cancelled = dealWith('cancelled_refunded')
-    const groups = groupDealsByStage([disputed, cancelled])
+    const refunded = dealWith('cancelled_refunded')
+    const cancelled = dealWith('cancelled')
+    const groups = groupDealsByStage([disputed, refunded, cancelled])
     for (const group of groups) {
       expect(group.deals).not.toContain(disputed)
+      expect(group.deals).not.toContain(refunded)
       expect(group.deals).not.toContain(cancelled)
     }
   })

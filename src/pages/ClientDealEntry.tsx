@@ -17,16 +17,18 @@ import { DealProgressBar } from '../components/DealProgressBar'
 import { KeyTermsSummary } from '../components/KeyTermsSummary'
 import { ProductionTimer } from '../components/ProductionTimer'
 import { RevisionRequestForm } from '../components/RevisionRequestForm'
+import { CancelDealDialog } from '../components/CancelDealDialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { ESCALATABLE_STATUSES } from '../domain/dealMachine'
+import { CANCELLABLE_STATUSES, ESCALATABLE_STATUSES } from '../domain/dealMachine'
 import { generateActText, generateContractText } from '../domain/contractTemplate'
 import { formatMoney } from '../domain/statusLabels'
 import type { Deal } from '../domain/types'
 
 const ESCALATABLE = new Set(ESCALATABLE_STATUSES)
+const CANCELLABLE = new Set(CANCELLABLE_STATUSES)
 
 export function ClientDealEntry() {
   const { id } = useParams<{ id: string }>()
@@ -93,6 +95,7 @@ function ClientOnboarding({ deal }: { deal: Deal }) {
           <Label htmlFor="client-phone">Телефон</Label>
           <Input
             id="client-phone"
+            type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             placeholder="+7 700 000 00 00"
@@ -260,7 +263,19 @@ function ClientDealScreen({ dealId }: { dealId: string }) {
         <p className="text-sm font-semibold text-destructive">Сделка отменена, деньги возвращены (демо).</p>
       )}
 
+      {deal.status === 'cancelled' && (
+        <p className="text-sm font-semibold text-muted-foreground">
+          Сделка отменена{deal.cancellationReason && `: «${deal.cancellationReason}»`}.
+        </p>
+      )}
+
       <DisputePanel deal={deal} disputes={disputes} />
+
+      {CANCELLABLE.has(deal.status) && (
+        <div className="flex justify-end">
+          <CancelDealDialog dealId={deal.id} actor="client" triggerLabel="Отменить сделку" />
+        </div>
+      )}
 
       {deal.status !== 'draft' && deal.status !== 'awaiting_client' && (
         <section>

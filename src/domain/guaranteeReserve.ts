@@ -2,7 +2,7 @@ import type { Deal, DealStatus } from './types'
 
 export const GUARANTEE_RESERVE_LIMIT = 2_000_000
 
-const NON_RESERVE_STATUSES: DealStatus[] = ['draft', 'completed', 'cancelled_refunded']
+const NON_RESERVE_STATUSES: DealStatus[] = ['draft', 'completed', 'cancelled_refunded', 'cancelled']
 
 export function dealsOccupyingReserve(deals: Deal[]): Deal[] {
   return deals.filter((deal) => !NON_RESERVE_STATUSES.includes(deal.status))

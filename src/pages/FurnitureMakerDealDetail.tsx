@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useDeal, useDealHistory, useDemoActions, useDemoState } from '../store/DemoProvider'
 import { StatusBadge } from '../components/StatusBadge'
@@ -12,7 +12,8 @@ import { AttachmentGallery } from '../components/AttachmentGallery'
 import { SignDocumentDialog } from '../components/SignDocumentDialog'
 import { PayoutRequisitesDialog } from '../components/PayoutRequisitesDialog'
 import { GuaranteeBanner } from '../components/GuaranteeBanner'
-import { GuaranteeCertificateDialog } from '../components/GuaranteeCertificateDialog'
+import { GuaranteeCertificateDialog, hasSeenCertificate } from '../components/GuaranteeCertificateDialog'
+import { CancelDealDialog } from '../components/CancelDealDialog'
 import { StepGuidanceCard } from '../components/StepGuidanceCard'
 import { DealProgressBar } from '../components/DealProgressBar'
 import { DealBalance } from '../components/DealBalance'
@@ -22,12 +23,13 @@ import { BackLink } from '../components/BackLink'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { dealToSpecInput, ESCALATABLE_STATUSES } from '../domain/dealMachine'
+import { CANCELLABLE_STATUSES, dealToSpecInput, ESCALATABLE_STATUSES } from '../domain/dealMachine'
 import { generateActText, generateContractText } from '../domain/contractTemplate'
 import { calculateGuaranteeReserve, GUARANTEE_RESERVE_LIMIT } from '../domain/guaranteeReserve'
-import { formatMoney } from '../domain/statusLabels'
+import { formatDateTime, formatMoney } from '../domain/statusLabels'
 
 const ESCALATABLE = new Set(ESCALATABLE_STATUSES)
+const CANCELLABLE = new Set(CANCELLABLE_STATUSES)
 
 export function FurnitureMakerDealDetail() {
   const { id } = useParams<{ id: string }>()
@@ -43,11 +45,17 @@ export function FurnitureMakerDealDetail() {
     setRole,
     updateDeal,
     addMessage,
+    confirmMeasurement,
   } = useDemoActions()
   const navigate = useNavigate()
   const [operatorReason, setOperatorReason] = useState('')
   const [showEditSpecForm, setShowEditSpecForm] = useState(false)
   const [reserveWarning, setReserveWarning] = useState<string | null>(null)
+  const [certificateSeen, setCertificateSeen] = useState(() => (deal ? hasSeenCertificate(deal.id) : true))
+
+  useEffect(() => {
+    if (deal) setCertificateSeen(hasSeenCertificate(deal.id))
+  }, [deal?.id])
 
   if (!deal) return <p className="text-sm text-muted-foreground">Сделка не найдена.</p>
 
@@ -77,8 +85,14 @@ export function FurnitureMakerDealDetail() {
 
       <StepGuidanceCard status={deal.status} actor="furniture_maker" />
 
+      {deal.status === 'draft' && !certificateSeen && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-info/30 bg-info/10 px-3.5 py-2.5 text-sm text-info">
+          <span>По этой сделке оформлена гарантия Asia Mebel.</span>
+        </div>
+      )}
+
       <div className="flex justify-end">
-        <GuaranteeCertificateDialog deal={deal} />
+        <GuaranteeCertificateDialog deal={deal} onOpen={() => setCertificateSeen(true)} />
       </div>
 
       <OrderSpecSummary deal={deal} />
@@ -178,13 +192,31 @@ export function FurnitureMakerDealDetail() {
               />
             )}
           </section>
+          {deal.measurementConfirmedAt ? (
+            <p className="text-xs text-muted-foreground">
+              Замер подтверждён {formatDateTime(deal.measurementConfirmedAt)}.
+            </p>
+          ) : (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-warning/30 bg-warning/10 px-3.5 py-2.5 text-sm text-warning">
+              <span>Замер ещё не подтверждён — характеристики считаются предварительными.</span>
+              <Button variant="outline" size="sm" onClick={() => confirmMeasurement(deal.id)}>
+                Подтвердить замер
+              </Button>
+            </div>
+          )}
           {deal.clientAccepted ? (
-            <SignDocumentDialog
-              documentTitle={`Договор подряда № ${deal.slug}`}
-              documentText={generateContractText(deal)}
-              triggerLabel="Посмотреть и подписать договор"
-              onSign={(code) => signByFurnitureMaker(deal.id, code)}
-            />
+            <div className="grid gap-2">
+              {!deal.measurementConfirmedAt && (
+                <p className="text-sm text-warning">Подтвердите замер, прежде чем подписывать договор.</p>
+              )}
+              <SignDocumentDialog
+                documentTitle={`Договор подряда № ${deal.slug}`}
+                documentText={generateContractText(deal)}
+                triggerLabel="Посмотреть и подписать договор"
+                onSign={(code) => signByFurnitureMaker(deal.id, code)}
+                disabled={!deal.measurementConfirmedAt}
+              />
+            </div>
           ) : (
             <p className="text-sm text-muted-foreground">Ожидаем решения клиента — согласия или правок.</p>
           )}
@@ -245,7 +277,10 @@ export function FurnitureMakerDealDetail() {
 
       {deal.status === 'completed' && (
         <div className="grid gap-2">
-          <p className="text-sm font-semibold text-success">Сделка завершена, выплаты произведены.</p>
+          <p className="text-sm font-semibold text-success">
+            Сделка завершена. Итоговая сумма зачислена на счёт платформы — доступна к запросу перевода (см.
+            «Выплаты» ниже).
+          </p>
           {deal.acceptedWithRemarks && (
             <div className="rounded-md border border-warning/30 bg-warning/10 px-3.5 py-2.5 text-sm text-warning">
               Клиент принял с замечаниями: «{deal.acceptanceRemarks}»
@@ -258,7 +293,19 @@ export function FurnitureMakerDealDetail() {
         <p className="text-sm font-semibold text-destructive">Сделка отменена, инициирован возврат клиенту.</p>
       )}
 
+      {deal.status === 'cancelled' && (
+        <p className="text-sm font-semibold text-muted-foreground">
+          Сделка отменена{deal.cancellationReason && `: «${deal.cancellationReason}»`}.
+        </p>
+      )}
+
       <DisputePanel deal={deal} disputes={disputes} />
+
+      {CANCELLABLE.has(deal.status) && (
+        <div className="flex justify-end">
+          <CancelDealDialog dealId={deal.id} actor="furniture_maker" triggerLabel="Не могу выполнить заказ" />
+        </div>
+      )}
 
       {deal.status !== 'draft' && deal.status !== 'awaiting_client' && (
         <section>

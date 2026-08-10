@@ -9,6 +9,17 @@ import { MessageThread } from '../components/MessageThread'
 import { OrderSpecSummary } from '../components/OrderSpecSummary'
 import { BackLink } from '../components/BackLink'
 import { StepGuidanceCard } from '../components/StepGuidanceCard'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { STATUS_LABELS, formatDate, formatMoney } from '../domain/statusLabels'
@@ -106,15 +117,33 @@ export function OperatorDealDetail() {
               ))}
             </SelectContent>
           </Select>
-          <Button
-            variant="outline"
-            disabled={!manualStatus}
-            onClick={() => {
-              if (manualStatus) operatorSetStatus(deal.id, manualStatus)
-            }}
-          >
-            Применить
-          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" disabled={!manualStatus}>
+                Применить
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Сменить статус сделки?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Статус изменится на «{manualStatus ? STATUS_LABELS[manualStatus] : ''}» в обход графа
+                  переходов. По сделке уже могут двигаться реальные деньги — проверьте, что это осознанное
+                  ручное вмешательство, а не случайный клик.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Отмена</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => {
+                    if (manualStatus) operatorSetStatus(deal.id, manualStatus)
+                  }}
+                >
+                  Сменить статус
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </section>
     </div>

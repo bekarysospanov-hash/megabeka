@@ -14,6 +14,7 @@ export type DealStatus =
   | 'completed'
   | 'dispute_open'
   | 'cancelled_refunded'
+  | 'cancelled'
 
 export type Actor = 'client' | 'furniture_maker' | 'operator'
 
@@ -68,6 +69,9 @@ export interface Deal {
   guaranteeIssuedAt: string
   acceptedWithRemarks: boolean
   acceptanceRemarks: string | null
+  cancellationReason: string | null
+  cancelledBy: Actor | null
+  measurementConfirmedAt: string | null
 }
 
 export interface RevisionEntry {

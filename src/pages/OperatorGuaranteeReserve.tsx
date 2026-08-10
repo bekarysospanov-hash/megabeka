@@ -15,7 +15,7 @@ export function OperatorGuaranteeReserve() {
     <div className="grid gap-6">
       <h1 className="text-xl font-semibold tracking-tight">Резерв гарантии</h1>
       <p className="text-sm text-muted-foreground">
-        Общий пул гарантии Asia Mebel на площадку. Первый шаг к формализации резервного фонда (раздел 7 ТЗ).
+        Общий пул гарантии Asia Mebel на площадку — лимит, занятая и доступная часть по всем активным сделкам.
       </p>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">

@@ -119,6 +119,7 @@ export function DealSpecForm({
             <Label htmlFor="contact-phone">Телефон</Label>
             <Input
               id="contact-phone"
+              type="tel"
               value={contactPhone}
               onChange={(e) => setContactPhone(e.target.value)}
               placeholder="+7 700 000 00 00"

@@ -25,6 +25,16 @@ export const ESCALATABLE_STATUSES: DealStatus[] = [
   'act_signing',
 ]
 
+// До payment_processing деньги ещё не двигались — лёгкая отмена закрывает сделку сразу,
+// без формального спора/эскалации оператору. После — только через callOperator/initiateRefund,
+// потому что там уже есть деньги, которые нужно по-настоящему возвращать.
+export const CANCELLABLE_STATUSES: DealStatus[] = [
+  'negotiation',
+  'contract_signing',
+  'contract_signed',
+  'payment_pending',
+]
+
 export function generateDealId(): string {
   return generateId()
 }
@@ -123,6 +133,9 @@ export function createDeal(input: CreateDealInput): Deal {
     guaranteeIssuedAt: new Date().toISOString(),
     acceptedWithRemarks: false,
     acceptanceRemarks: null,
+    cancellationReason: null,
+    cancelledBy: null,
+    measurementConfirmedAt: null,
   }
 }
 
@@ -133,6 +146,9 @@ export function updateDealSpec(deal: Deal, input: DealSpecInput): Deal {
     // Условия изменились после того, как деньги/статус уже могли зависеть от согласия клиента —
     // повторное согласие обязательно, иначе клиент может принять устаревшие условия.
     clientAccepted: deal.status === 'negotiation' ? false : deal.clientAccepted,
+    // Тот же повод, что и для clientAccepted: подтверждённый замер мог относиться к старым
+    // размерам — после правки характеристик его нужно подтверждать заново.
+    measurementConfirmedAt: deal.status === 'negotiation' ? null : deal.measurementConfirmedAt,
     ...specFields(input),
   }
 }
@@ -274,4 +290,15 @@ export function resolveDispute(deal: Deal): Deal {
   }
   const restored = withStatus({ ...deal, frozen: false }, deal.previousStatus)
   return { ...restored, previousStatus: null }
+}
+
+export function cancelDeal(deal: Deal, actor: Actor, reason: string): Deal {
+  assertStatusOneOf(deal, CANCELLABLE_STATUSES)
+  const trimmedReason = reason.trim() || null
+  return withStatus({ ...deal, cancelledBy: actor, cancellationReason: trimmedReason }, 'cancelled')
+}
+
+export function confirmMeasurement(deal: Deal): Deal {
+  assertStatus(deal, 'negotiation')
+  return { ...deal, measurementConfirmedAt: new Date().toISOString() }
 }

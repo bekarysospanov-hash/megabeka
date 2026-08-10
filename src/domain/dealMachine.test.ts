@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   callOperator,
+  cancelDeal,
   clientAccepts,
+  confirmMeasurement,
   createDeal,
   freezeDispute,
   initiateRefund,
@@ -134,6 +136,15 @@ describe('updateDealSpec', () => {
     expect(updated.status).toBe('negotiation')
     expect(updated.amount).toBe(900_000)
     expect(updated.clientAccepted).toBe(false)
+  })
+
+  it('сбрасывает measurementConfirmedAt в negotiation — подтверждённый замер мог относиться к старым размерам', () => {
+    const measured = confirmMeasurement(toNegotiation())
+    expect(measured.measurementConfirmedAt).toBeTruthy()
+
+    const updated = updateDealSpec(measured, { ...baseInput, widthCm: 250 })
+    expect(updated.status).toBe('negotiation')
+    expect(updated.measurementConfirmedAt).toBeNull()
   })
 })
 
@@ -301,6 +312,51 @@ describe('resolveDispute', () => {
     const resolved = resolveDispute(frozen)
     expect(resolved.status).toBe('in_production')
     expect(resolved.frozen).toBe(false)
+  })
+})
+
+describe('cancelDeal', () => {
+  it('недоступен до отправки клиенту и после начала обработки платежа', () => {
+    expect(() => cancelDeal(createDeal(baseInput), 'furniture_maker', '')).toThrow()
+    expect(() => cancelDeal(toAwaitingClient(), 'client', '')).toThrow()
+    expect(() => cancelDeal(toPaymentProcessing(), 'client', '')).toThrow()
+    expect(() => cancelDeal(toInProduction(), 'furniture_maker', '')).toThrow()
+  })
+
+  it('доступен на negotiation/contract_signing/contract_signed/payment_pending и переводит в cancelled', () => {
+    expect(cancelDeal(toNegotiation(), 'client', '').status).toBe('cancelled')
+    expect(cancelDeal(toContractSigning(), 'furniture_maker', '').status).toBe('cancelled')
+    expect(cancelDeal(toPaymentPending(), 'client', '').status).toBe('cancelled')
+  })
+
+  it('сохраняет, кто отменил и причину, и пишет переход в statusHistory', () => {
+    const deal = cancelDeal(toNegotiation(), 'furniture_maker', 'клиент передумал')
+    expect(deal.cancelledBy).toBe('furniture_maker')
+    expect(deal.cancellationReason).toBe('клиент передумал')
+    expect(deal.statusHistory.some((h) => h.status === 'cancelled')).toBe(true)
+  })
+
+  it('пустая причина сохраняется как null, а не пустая строка', () => {
+    const deal = cancelDeal(toNegotiation(), 'client', '   ')
+    expect(deal.cancellationReason).toBeNull()
+  })
+})
+
+describe('confirmMeasurement', () => {
+  it('доступен только в negotiation', () => {
+    expect(() => confirmMeasurement(createDeal(baseInput))).toThrow()
+    expect(() => confirmMeasurement(toAwaitingClient())).toThrow()
+    expect(() => confirmMeasurement(toContractSigning())).toThrow()
+  })
+
+  it('проставляет measurementConfirmedAt валидной датой, не меняя статус и историю статусов', () => {
+    const before = toNegotiation()
+    const beforeTime = Date.now()
+    const after = confirmMeasurement(before)
+    expect(after.status).toBe('negotiation')
+    expect(after.statusHistory).toEqual(before.statusHistory)
+    expect(after.measurementConfirmedAt).toBeTruthy()
+    expect(new Date(after.measurementConfirmedAt!).getTime()).toBeGreaterThanOrEqual(beforeTime)
   })
 })
 

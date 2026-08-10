@@ -16,7 +16,7 @@ function dealWith(status: DealStatus, amount = 500_000): Deal {
   return { ...createDeal({ ...baseInput, amount }), status }
 }
 
-const NON_RESERVE_STATUSES: DealStatus[] = ['draft', 'completed', 'cancelled_refunded']
+const NON_RESERVE_STATUSES: DealStatus[] = ['draft', 'completed', 'cancelled_refunded', 'cancelled']
 const RESERVE_STATUSES: DealStatus[] = [
   'awaiting_client',
   'negotiation',
@@ -53,6 +53,11 @@ describe('calculateGuaranteeReserve', () => {
 
   it('сделка в cancelled_refunded не увеличивает used', () => {
     const { used } = calculateGuaranteeReserve([dealWith('cancelled_refunded')])
+    expect(used).toBe(0)
+  })
+
+  it('сделка в cancelled не увеличивает used', () => {
+    const { used } = calculateGuaranteeReserve([dealWith('cancelled')])
     expect(used).toBe(0)
   })
 

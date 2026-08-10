@@ -21,11 +21,13 @@ export function SignDocumentDialog({
   documentText,
   triggerLabel,
   onSign,
+  disabled = false,
 }: {
   documentTitle: string
   documentText: string
   triggerLabel: string
   onSign: (code: string) => void
+  disabled?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [step, setStep] = useState<SignStep>('redirecting')
@@ -64,7 +66,9 @@ export function SignDocumentDialog({
         }
       }}
     >
-      <Button onClick={() => setOpen(true)}>{triggerLabel}</Button>
+      <Button disabled={disabled} onClick={() => setOpen(true)}>
+        {triggerLabel}
+      </Button>
       <DialogContent className="max-h-[85vh] overflow-hidden p-0">
         {step === 'redirecting' && <RedirectingScreen />}
         {step === 'trustme' && (

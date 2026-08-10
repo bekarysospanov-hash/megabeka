@@ -16,6 +16,7 @@ export const STATUS_LABELS: Record<DealStatus, string> = {
   completed: 'Завершена',
   dispute_open: 'Спор / эскалация',
   cancelled_refunded: 'Отменена, возврат',
+  cancelled: 'Отменена',
 }
 
 export type StatusTone = 'neutral' | 'info' | 'warning' | 'success' | 'danger'
@@ -36,6 +37,7 @@ export const STATUS_TONES: Record<DealStatus, StatusTone> = {
   completed: 'success',
   dispute_open: 'danger',
   cancelled_refunded: 'danger',
+  cancelled: 'neutral',
 }
 
 export function formatMoney(amount: number): string {

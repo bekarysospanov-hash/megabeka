@@ -33,18 +33,26 @@ const SELECT_OPTIONS: Partial<Record<RevisionFieldKey, Record<string, string>>> 
   hardwareTier: HARDWARE_LABELS,
 }
 
-const FIELD_GROUPS: { key: RevisionFieldKey; label: string }[] = [
-  { key: 'amount', label: 'Сумма' },
-  { key: 'deadline', label: 'Срок изготовления' },
-  { key: 'category', label: 'Тип мебели' },
-  { key: 'material', label: 'Материал' },
-  { key: 'finish', label: 'Цвет / отделка' },
-  { key: 'qualityTier', label: 'Качество' },
-  { key: 'hardwareTier', label: 'Фурнитура' },
-  { key: 'widthCm', label: 'Ширина, см' },
-  { key: 'heightCm', label: 'Высота, см' },
-  { key: 'depthCm', label: 'Глубина, см' },
-  { key: 'lengthCm', label: 'Длина, см' },
+const FIELD_LABELS: Record<RevisionFieldKey, string> = {
+  amount: 'Сумма',
+  deadline: 'Срок изготовления',
+  category: 'Тип мебели',
+  material: 'Материал',
+  finish: 'Цвет / отделка',
+  qualityTier: 'Качество',
+  hardwareTier: 'Фурнитура',
+  widthCm: 'Ширина, см',
+  heightCm: 'Высота, см',
+  depthCm: 'Глубина, см',
+  lengthCm: 'Длина, см',
+}
+
+// Группировка по образцу DealSpecForm (экран «Новая сделка») — те же поля, что там разбиты
+// на пронумерованные секции, здесь были плоским списком из 11 несгруппированных тумблеров.
+const REVISION_GROUPS: { title: string; hint?: string; fields: RevisionFieldKey[] }[] = [
+  { title: 'Сумма и срок', fields: ['amount', 'deadline'] },
+  { title: 'Тип и материал', fields: ['category', 'material', 'finish', 'qualityTier', 'hardwareTier'] },
+  { title: 'Размеры', hint: 'В сантиметрах', fields: ['widthCm', 'heightCm', 'depthCm', 'lengthCm'] },
 ]
 
 function currentValue(deal: Deal, field: RevisionFieldKey): string {
@@ -149,24 +157,36 @@ export function RevisionRequestForm({
       <p className="text-xs text-muted-foreground">
         Отметьте, что хотите изменить, и укажите новое значение — можно выбрать сразу несколько полей.
       </p>
-      <div className="grid gap-2">
-        {FIELD_GROUPS.map(({ key, label }) => (
-          <div key={key} className="grid gap-2 rounded-md border p-2.5">
-            <label className="flex items-center justify-between gap-2 text-sm font-medium">
-              <span className="flex items-center gap-2">
-                {label}
-                <span className="text-xs font-normal text-muted-foreground">сейчас: {currentValue(deal, key)}</span>
-              </span>
-              <Switch checked={selected.has(key)} onCheckedChange={(checked) => toggle(key, checked)} />
-            </label>
-            {selected.has(key) && (
-              <FieldInput
-                field={key}
-                value={values[key] ?? ''}
-                onChange={(v) => setValues((prev) => ({ ...prev, [key]: v }))}
-              />
-            )}
-          </div>
+      <div className="grid gap-4">
+        {REVISION_GROUPS.map((group) => (
+          <section key={group.title} className="grid gap-2 rounded-lg border p-3">
+            <div>
+              <h3 className="text-sm font-semibold">{group.title}</h3>
+              {group.hint && <p className="text-xs text-muted-foreground">{group.hint}</p>}
+            </div>
+            <div className="grid gap-2">
+              {group.fields.map((key) => (
+                <div key={key} className="grid gap-2 rounded-md border p-2.5">
+                  <label className="flex items-center justify-between gap-2 text-sm font-medium">
+                    <span className="flex items-center gap-2">
+                      {FIELD_LABELS[key]}
+                      <span className="text-xs font-normal text-muted-foreground">
+                        сейчас: {currentValue(deal, key)}
+                      </span>
+                    </span>
+                    <Switch checked={selected.has(key)} onCheckedChange={(checked) => toggle(key, checked)} />
+                  </label>
+                  {selected.has(key) && (
+                    <FieldInput
+                      field={key}
+                      value={values[key] ?? ''}
+                      onChange={(v) => setValues((prev) => ({ ...prev, [key]: v }))}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
         ))}
       </div>
       <Input value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Комментарий (необязательно)" />

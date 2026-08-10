@@ -5,11 +5,19 @@ import { CategoryTag } from '../components/CategoryTag'
 import { FurnitureMakerDashboardSummary } from '../components/FurnitureMakerDashboardSummary'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { dealsNeedingAttention } from '../domain/attention'
 import { formatMoney } from '../domain/statusLabels'
 
 export function FurnitureMakerDealsList() {
   const { deals, transactions, transferRequests } = useDemoState()
-  const list = Object.values(deals).sort((a, b) => a.title.localeCompare(b.title))
+  const allDeals = Object.values(deals)
+  // Та же логика приоритета, что уже подсвечивает блок «Требует внимания» в дашборде выше —
+  // споры и просроченное производство поднимаются наверх, как у оператора.
+  const attentionIds = new Set(dealsNeedingAttention(allDeals).map((deal) => deal.id))
+  const list = allDeals.sort((a, b) => {
+    const priorityDiff = Number(attentionIds.has(b.id)) - Number(attentionIds.has(a.id))
+    return priorityDiff !== 0 ? priorityDiff : a.title.localeCompare(b.title)
+  })
 
   return (
     <div className="grid gap-6">
