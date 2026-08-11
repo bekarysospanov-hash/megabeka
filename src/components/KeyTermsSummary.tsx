@@ -74,7 +74,7 @@ export function KeyTermsSummary({ deal }: { deal: Deal }) {
         )}
         {deal.hardwareTier && (
           <div className="flex justify-between gap-2 sm:justify-start">
-            <dt className="text-muted-foreground">Фурнитура</dt>
+            <dt className="text-muted-foreground">Класс фурнитуры</dt>
             <dd className="font-medium sm:ml-auto">{HARDWARE_LABELS[deal.hardwareTier]}</dd>
           </div>
         )}
