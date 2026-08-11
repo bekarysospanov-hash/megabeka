@@ -1,10 +1,12 @@
 import { useState } from 'react'
+import { ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { BackLink } from '../components/BackLink'
 import { PayoutRequisitesForm } from '../components/PayoutRequisitesForm'
-import { formatDate, maskCard } from '../domain/statusLabels'
+import { GUARANTEE_RESERVE_LIMIT } from '../domain/guaranteeReserve'
+import { formatDate, formatMoney, maskAccountNumber } from '../domain/statusLabels'
 import { useDemoActions, useDemoState } from '../store/DemoProvider'
 
 export function FurnitureMakerVerification() {
@@ -29,6 +31,29 @@ export function FurnitureMakerVerification() {
           весь путь сделки виден обеим сторонам в реальном времени.
         </p>
       </div>
+
+      <section className="grid gap-2 rounded-lg border border-primary/20 bg-primary/5 p-5">
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="h-5 w-5 text-primary" aria-hidden />
+          <h2 className="text-sm font-semibold">Как работает гарантия</h2>
+        </div>
+        <ul className="grid gap-1.5 text-sm text-muted-foreground">
+          <li>
+            <span className="font-medium text-foreground">Клиенту</span> — деньги хранятся на счёте
+            платформы и выплачиваются вам только после подписания акта. Если сделка не исполнена,
+            Asia Mebel возвращает клиенту оплату.
+          </li>
+          <li>
+            <span className="font-medium text-foreground">Вам</span> — как только клиент оплатил, деньги
+            гарантированно ваши: Asia Mebel не может отдать их обратно клиенту без вашего согласия, кроме
+            случаев спора, решённого оператором.
+          </li>
+        </ul>
+        <p className="text-xs text-muted-foreground">
+          Общий лимит покрытия гарантии на площадку — {formatMoney(GUARANTEE_RESERVE_LIMIT)}. Пока идут
+          активные сделки на эту сумму, новые сделки сверх лимита временно недоступны для отправки клиенту.
+        </p>
+      </section>
 
       {furnitureMakerVerification && (
         <div className="rounded-md border border-success/30 bg-success/10 px-3.5 py-2.5 text-sm text-success">
@@ -73,8 +98,8 @@ export function FurnitureMakerVerification() {
         <h2 className="text-sm font-semibold">Реквизиты для выплат</h2>
         {payoutRequisites && (
           <div className="rounded-md border border-success/30 bg-success/10 px-3.5 py-2.5 text-sm text-success">
-            Переводы по вашему запросу будут приходить на карту {maskCard(payoutRequisites.cardNumber)} (
-            {payoutRequisites.holderName})
+            Переводы по вашему запросу будут приходить в {payoutRequisites.bankName}, счёт{' '}
+            {maskAccountNumber(payoutRequisites.accountNumber)}
           </div>
         )}
         <div className="max-w-sm">

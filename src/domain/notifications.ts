@@ -104,3 +104,18 @@ export function buildRevisionRequestedNotification(dealId: string, field: string
     },
   ]
 }
+
+export function buildRevisionsRequestedNotification(dealId: string, fields: string[]): NotificationEvent[] {
+  const labels = fields.map((f) => REVISION_FIELD_LABELS[f] ?? f).join(', ')
+  const at = new Date().toISOString()
+  const base = { dealId, status: 'negotiation' as const, at, read: false }
+  return [
+    { ...base, id: generateId(), recipientRole: 'furniture_maker', text: `Клиент запросил изменения: ${labels}` },
+    {
+      ...base,
+      id: generateId(),
+      recipientRole: 'operator',
+      text: `Клиент запросил изменения условий сделки: ${labels}`,
+    },
+  ]
+}

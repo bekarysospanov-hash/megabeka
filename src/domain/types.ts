@@ -28,13 +28,32 @@ export type FurnitureCategory =
   | 'office'
   | 'other'
 
-export type MaterialType = 'chipboard' | 'mdf' | 'solid_wood' | 'other'
+// Материал корпуса (каркаса)
+export type MaterialType = 'chipboard_standard' | 'chipboard_premium' | 'mdf'
 
 export type QualityTier = 'economy' | 'standard' | 'premium'
 
-export type HardwareTier = 'standard' | 'premium' | 'unspecified'
+// Класс фурнитуры
+export type HardwareTier = 'budget' | 'mid' | 'premium'
 
 export type PaymentMethod = 'card' | 'bank'
+
+export type DealConfiguration = 'straight' | 'l_shaped' | 'u_shaped' | 'built_in' | 'freestanding'
+
+// Материал фасадов — отдельно от материала корпуса
+export type FacadeMaterial = 'chipboard' | 'pvc_film' | 'plastic_hpl' | 'enamel_mdf' | 'veneer_solid'
+
+export type FacadeType = 'smooth' | 'milled' | 'glass_showcase'
+
+export type CountertopType = 'chipboard_plastic' | 'compact_plate' | 'acrylic_stone' | 'quartz_agglomerate'
+
+export type OpeningSystem = 'handles' | 'gola_profile' | 'push_to_open'
+
+export type SpecialMechanism = 'lifters' | 'bottle_racks' | 'pull_out_baskets' | 'pantographs'
+
+export type ApplianceMount = 'built_in' | 'freestanding'
+
+export type ApplianceItem = 'fridge' | 'cooktop' | 'oven' | 'microwave' | 'dishwasher' | 'washing_machine' | 'hood'
 
 export interface Deal {
   id: string
@@ -51,6 +70,7 @@ export interface Deal {
   commissionPercent: number
   category: FurnitureCategory | null
   hasUpholstery: boolean
+  configuration: DealConfiguration | null
   widthCm: number | null
   heightCm: number | null
   depthCm: number | null
@@ -59,6 +79,18 @@ export interface Deal {
   finish: string | null
   qualityTier: QualityTier | null
   hardwareTier: HardwareTier | null
+  facadeMaterial: FacadeMaterial | null
+  facadeType: FacadeType | null
+  countertopType: CountertopType | null
+  openingSystem: OpeningSystem | null
+  drawerCount: number | null
+  specialMechanisms: SpecialMechanism[]
+  applianceMount: ApplianceMount | null
+  appliances: ApplianceItem[]
+  lightingNeeded: boolean
+  clientBudget: number | null
+  desiredTimeline: string | null
+  referenceLink: string | null
   estimatedProductionDays: number | null
   status: DealStatus
   previousStatus: DealStatus | null
@@ -71,10 +103,13 @@ export interface Deal {
   acceptanceRemarks: string | null
   cancellationReason: string | null
   cancelledBy: Actor | null
-  measurementConfirmedAt: string | null
 }
 
 export interface RevisionEntry {
+  // Общий на все поля одного запроса (см. requestRevisions в dealMachine.ts) — по нему
+  // группируется история правок, а не по `at`: два отдельных запроса технически могут
+  // получить одинаковую метку времени (миллисекундная точность), id — нет.
+  requestId: string
   dealId: string
   field: string
   oldValue: string
@@ -106,8 +141,8 @@ export interface Message {
 }
 
 export interface PayoutRequisites {
-  cardNumber: string
-  holderName: string
+  bankName: string
+  accountNumber: string
   savedAt: string
 }
 
@@ -155,6 +190,7 @@ export interface CreateDealInput {
   contactPhone?: string | null
   category?: FurnitureCategory | null
   hasUpholstery?: boolean
+  configuration?: DealConfiguration | null
   widthCm?: number | null
   heightCm?: number | null
   depthCm?: number | null
@@ -163,6 +199,18 @@ export interface CreateDealInput {
   finish?: string | null
   qualityTier?: QualityTier | null
   hardwareTier?: HardwareTier | null
+  facadeMaterial?: FacadeMaterial | null
+  facadeType?: FacadeType | null
+  countertopType?: CountertopType | null
+  openingSystem?: OpeningSystem | null
+  drawerCount?: number | null
+  specialMechanisms?: SpecialMechanism[]
+  applianceMount?: ApplianceMount | null
+  appliances?: ApplianceItem[]
+  lightingNeeded?: boolean
+  clientBudget?: number | null
+  desiredTimeline?: string | null
+  referenceLink?: string | null
   estimatedProductionDays?: number | null
 }
 

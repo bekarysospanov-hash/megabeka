@@ -4,6 +4,7 @@ import {
   buildNotificationEvents,
   buildPaymentRetryNotification,
   buildRevisionRequestedNotification,
+  buildRevisionsRequestedNotification,
 } from './notifications'
 import { REVISION_FIELD_LABELS } from './orderSpecLabels'
 import { stepGuidance } from './stepGuidance'
@@ -72,6 +73,17 @@ describe('buildRevisionRequestedNotification', () => {
     const events = buildRevisionRequestedNotification('deal-1', 'custom_field')
     for (const event of events) {
       expect(event.text).toContain('custom_field')
+    }
+  })
+})
+
+describe('buildRevisionsRequestedNotification', () => {
+  it('одно уведомление на обоих получателей перечисляет все изменённые поля', () => {
+    const events = buildRevisionsRequestedNotification('deal-1', ['amount', 'heightCm'])
+    expect(events.map((e) => e.recipientRole).sort()).toEqual(['furniture_maker', 'operator'])
+    for (const event of events) {
+      expect(event.text).toContain(REVISION_FIELD_LABELS.amount)
+      expect(event.text).toContain(REVISION_FIELD_LABELS.heightCm)
     }
   })
 })

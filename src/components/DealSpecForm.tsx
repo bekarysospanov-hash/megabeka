@@ -4,8 +4,38 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { CATEGORY_OPTIONS, HARDWARE_LABELS, MATERIAL_LABELS, QUALITY_LABELS } from '../domain/orderSpecLabels'
-import type { DealSpecInput, FurnitureCategory, HardwareTier, MaterialType, QualityTier } from '../domain/types'
+import { ToggleChips } from './ToggleChips'
+import {
+  APPLIANCE_ITEM_LABELS,
+  APPLIANCE_MOUNT_LABELS,
+  APPLIANCE_RELEVANT_CATEGORIES,
+  CATEGORY_OPTIONS,
+  CONFIGURATION_LABELS,
+  COUNTERTOP_LABELS,
+  COUNTERTOP_RELEVANT_CATEGORIES,
+  FACADE_MATERIAL_LABELS,
+  FACADE_TYPE_LABELS,
+  HARDWARE_LABELS,
+  MATERIAL_LABELS,
+  OPENING_SYSTEM_LABELS,
+  QUALITY_LABELS,
+  SPECIAL_MECHANISM_LABELS,
+} from '../domain/orderSpecLabels'
+import type {
+  ApplianceItem,
+  ApplianceMount,
+  CountertopType,
+  DealConfiguration,
+  DealSpecInput,
+  FacadeMaterial,
+  FacadeType,
+  FurnitureCategory,
+  HardwareTier,
+  MaterialType,
+  OpeningSystem,
+  QualityTier,
+  SpecialMechanism,
+} from '../domain/types'
 import { cn } from '@/lib/utils'
 
 const DEFAULT_PREPAYMENT_PERCENT = 50
@@ -54,14 +84,32 @@ export function DealSpecForm({
   const [contactPhone, setContactPhone] = useState(initial?.contactPhone ?? '')
   const [category, setCategory] = useState<FurnitureCategory | null>(initial?.category ?? null)
   const [hasUpholstery, setHasUpholstery] = useState(initial?.hasUpholstery ?? false)
+  const [configuration, setConfiguration] = useState<DealConfiguration | ''>(initial?.configuration ?? '')
   const [lengthCm, setLengthCm] = useState(initial?.lengthCm != null ? String(initial.lengthCm) : '')
-  const [widthCm, setWidthCm] = useState(initial?.widthCm != null ? String(initial.widthCm) : '')
   const [heightCm, setHeightCm] = useState(initial?.heightCm != null ? String(initial.heightCm) : '')
   const [depthCm, setDepthCm] = useState(initial?.depthCm != null ? String(initial.depthCm) : '')
   const [material, setMaterial] = useState<MaterialType | ''>(initial?.material ?? '')
   const [finish, setFinish] = useState(initial?.finish ?? '')
   const [qualityTier, setQualityTier] = useState<QualityTier | ''>(initial?.qualityTier ?? '')
+  const [facadeMaterial, setFacadeMaterial] = useState<FacadeMaterial | ''>(initial?.facadeMaterial ?? '')
+  const [facadeType, setFacadeType] = useState<FacadeType | ''>(initial?.facadeType ?? '')
+  const [countertopType, setCountertopType] = useState<CountertopType | ''>(initial?.countertopType ?? '')
   const [hardwareTier, setHardwareTier] = useState<HardwareTier | ''>(initial?.hardwareTier ?? '')
+  const [openingSystem, setOpeningSystem] = useState<OpeningSystem | ''>(initial?.openingSystem ?? '')
+  const [drawerCount, setDrawerCount] = useState(
+    initial?.drawerCount != null ? String(initial.drawerCount) : '',
+  )
+  const [specialMechanisms, setSpecialMechanisms] = useState<SpecialMechanism[]>(
+    initial?.specialMechanisms ?? [],
+  )
+  const [applianceMount, setApplianceMount] = useState<ApplianceMount | ''>(initial?.applianceMount ?? '')
+  const [appliances, setAppliances] = useState<ApplianceItem[]>(initial?.appliances ?? [])
+  const [lightingNeeded, setLightingNeeded] = useState(initial?.lightingNeeded ?? false)
+  const [clientBudget, setClientBudget] = useState(
+    initial?.clientBudget != null ? String(initial.clientBudget) : '',
+  )
+  const [desiredTimeline, setDesiredTimeline] = useState(initial?.desiredTimeline ?? '')
+  const [referenceLink, setReferenceLink] = useState(initial?.referenceLink ?? '')
   const [estimatedProductionDays, setEstimatedProductionDays] = useState(
     initial?.estimatedProductionDays != null ? String(initial.estimatedProductionDays) : '',
   )
@@ -71,6 +119,12 @@ export function DealSpecForm({
   const commissionPercent = initial?.commissionPercent ?? DEFAULT_COMMISSION_PERCENT
 
   const canSubmit = title.trim().length > 0 && Number(amount) > 0 && contactPhone.trim().length > 0
+  const showApplianceSection = category != null && APPLIANCE_RELEVANT_CATEGORIES.includes(category)
+  const showCountertop = category != null && COUNTERTOP_RELEVANT_CATEGORIES.includes(category)
+
+  function toggle<T extends string>(list: T[], value: T): T[] {
+    return list.includes(value) ? list.filter((v) => v !== value) : [...list, value]
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -85,14 +139,26 @@ export function DealSpecForm({
       contactPhone: contactPhone.trim() || null,
       category,
       hasUpholstery,
+      configuration: configuration || null,
       lengthCm: lengthCm ? Number(lengthCm) : null,
-      widthCm: widthCm ? Number(widthCm) : null,
       heightCm: heightCm ? Number(heightCm) : null,
       depthCm: depthCm ? Number(depthCm) : null,
       material: material || null,
       finish: finish.trim() || null,
       qualityTier: qualityTier || null,
       hardwareTier: hardwareTier || null,
+      facadeMaterial: facadeMaterial || null,
+      facadeType: facadeType || null,
+      countertopType: showCountertop ? countertopType || null : null,
+      openingSystem: openingSystem || null,
+      drawerCount: drawerCount ? Number(drawerCount) : null,
+      specialMechanisms,
+      applianceMount: showApplianceSection ? applianceMount || null : null,
+      appliances: showApplianceSection ? appliances : [],
+      lightingNeeded: showApplianceSection ? lightingNeeded : false,
+      clientBudget: clientBudget ? Number(clientBudget) : null,
+      desiredTimeline: desiredTimeline.trim() || null,
+      referenceLink: referenceLink.trim() || null,
       estimatedProductionDays: estimatedProductionDays ? Number(estimatedProductionDays) : null,
     })
   }
@@ -157,19 +223,31 @@ export function DealSpecForm({
         </label>
       </FormSection>
 
-      <FormSection step={3} title="Размеры" hint="Примерно, если известно">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <FormSection step={3} title="Конфигурация" hint="Необязательно">
+        <Select value={configuration} onValueChange={(v) => setConfiguration(v as DealConfiguration)}>
+          <SelectTrigger className="w-fit min-w-56">
+            <SelectValue placeholder="Не выбрано" />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(CONFIGURATION_LABELS).map(([value, label]) => (
+              <SelectItem key={value} value={value}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </FormSection>
+
+      <FormSection step={4} title="Размеры" hint="Примерно, если известно">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="grid gap-1.5">
-            <Label htmlFor="dim-length">Длина, см</Label>
+            <Label htmlFor="dim-length">Длина (по стенам), см</Label>
             <Input id="dim-length" type="number" min={0} value={lengthCm} onChange={(e) => setLengthCm(e.target.value)} />
-          </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="dim-width">Ширина, см</Label>
-            <Input id="dim-width" type="number" min={0} value={widthCm} onChange={(e) => setWidthCm(e.target.value)} />
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="dim-height">Высота, см</Label>
             <Input id="dim-height" type="number" min={0} value={heightCm} onChange={(e) => setHeightCm(e.target.value)} />
+            <p className="text-xs text-muted-foreground">От пола до потолка в помещении</p>
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="dim-depth">Глубина, см</Label>
@@ -178,10 +256,25 @@ export function DealSpecForm({
         </div>
       </FormSection>
 
-      <FormSection step={4} title="Материал">
+      <FormSection step={5} title="Материалы и дизайн">
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="grid gap-1.5">
-            <Label>Корпус</Label>
+            <Label>Ценовой сегмент</Label>
+            <Select value={qualityTier} onValueChange={(v) => setQualityTier(v as QualityTier)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Не выбрано" />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(QUALITY_LABELS).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid gap-1.5">
+            <Label>Материал корпуса (каркас)</Label>
             <Select value={material} onValueChange={(v) => setMaterial(v as MaterialType)}>
               <SelectTrigger>
                 <SelectValue placeholder="Не выбрано" />
@@ -196,69 +289,205 @@ export function DealSpecForm({
             </Select>
           </div>
           <div className="grid gap-1.5">
+            <Label>Материал фасадов</Label>
+            <Select value={facadeMaterial} onValueChange={(v) => setFacadeMaterial(v as FacadeMaterial)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Не выбрано" />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(FACADE_MATERIAL_LABELS).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid gap-1.5">
+            <Label>Тип фасадов</Label>
+            <Select value={facadeType} onValueChange={(v) => setFacadeType(v as FacadeType)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Не выбрано" />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(FACADE_TYPE_LABELS).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {showCountertop && (
+            <div className="grid gap-1.5">
+              <Label>Столешница</Label>
+              <Select value={countertopType} onValueChange={(v) => setCountertopType(v as CountertopType)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Не выбрано" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(COUNTERTOP_LABELS).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          <div className="grid gap-1.5">
             <Label htmlFor="finish">Цвет / отделка</Label>
             <Input id="finish" value={finish} onChange={(e) => setFinish(e.target.value)} placeholder="Например, дуб сонома" />
           </div>
         </div>
       </FormSection>
 
-      <FormSection step={5} title="Качество" hint="Ценовой уровень — ориентир для расчёта">
-        <Select value={qualityTier} onValueChange={(v) => setQualityTier(v as QualityTier)}>
-          <SelectTrigger className="w-fit min-w-48">
-            <SelectValue placeholder="Не выбрано" />
-          </SelectTrigger>
-          <SelectContent>
-            {Object.entries(QUALITY_LABELS).map(([value, label]) => (
-              <SelectItem key={value} value={value}>
-                {label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </FormSection>
-
-      <FormSection step={6} title="Фурнитура">
-        <Select value={hardwareTier} onValueChange={(v) => setHardwareTier(v as HardwareTier)}>
-          <SelectTrigger className="w-fit min-w-48">
-            <SelectValue placeholder="Не выбрано" />
-          </SelectTrigger>
-          <SelectContent>
-            {Object.entries(HARDWARE_LABELS).map(([value, label]) => (
-              <SelectItem key={value} value={value}>
-                {label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </FormSection>
-
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="grid gap-1.5">
-          <Label htmlFor="deal-amount">Примерная сумма, ₸</Label>
-          <Input
-            id="deal-amount"
-            type="number"
-            min={0}
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-          />
-          <p className="text-xs text-muted-foreground">
-            Предоплата {prepaymentPercent}% / финальный платёж {finalPercent}% · комиссия платформы{' '}
-            {commissionPercent}%
-          </p>
+      <FormSection step={6} title="Фурнитура и функционал">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-1.5">
+            <Label>Класс фурнитуры</Label>
+            <Select value={hardwareTier} onValueChange={(v) => setHardwareTier(v as HardwareTier)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Не выбрано" />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(HARDWARE_LABELS).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid gap-1.5">
+            <Label>Система открывания</Label>
+            <Select value={openingSystem} onValueChange={(v) => setOpeningSystem(v as OpeningSystem)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Не выбрано" />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(OPENING_SYSTEM_LABELS).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="drawer-count">Количество выдвижных ящиков (ориентировочно)</Label>
+            <Input
+              id="drawer-count"
+              type="number"
+              min={0}
+              value={drawerCount}
+              onChange={(e) => setDrawerCount(e.target.value)}
+              placeholder="Необязательно"
+            />
+          </div>
         </div>
-        <div className="grid gap-1.5">
-          <Label htmlFor="deal-production-days">Ориентировочный срок изготовления, дней</Label>
-          <Input
-            id="deal-production-days"
-            type="number"
-            min={0}
-            value={estimatedProductionDays}
-            onChange={(e) => setEstimatedProductionDays(e.target.value)}
-            placeholder="Необязательно"
+        <div className="grid gap-1.5 pt-1">
+          <Label>Специальные механизмы</Label>
+          <ToggleChips
+            options={Object.keys(SPECIAL_MECHANISM_LABELS) as SpecialMechanism[]}
+            labels={SPECIAL_MECHANISM_LABELS}
+            selected={specialMechanisms}
+            onToggle={(v) => setSpecialMechanisms((prev) => toggle(prev, v))}
           />
         </div>
-      </div>
+      </FormSection>
+
+      {showApplianceSection && (
+        <FormSection step={7} title="Техника и доп. элементы" hint="Актуально для кухонь и мебели под ТВ">
+          <div className="grid gap-1.5">
+            <Label>Техника</Label>
+            <Select value={applianceMount} onValueChange={(v) => setApplianceMount(v as ApplianceMount)}>
+              <SelectTrigger className="w-fit min-w-48">
+                <SelectValue placeholder="Не выбрано" />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(APPLIANCE_MOUNT_LABELS).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid gap-1.5 pt-1">
+            <Label>Что нужно встроить</Label>
+            <ToggleChips
+              options={Object.keys(APPLIANCE_ITEM_LABELS) as ApplianceItem[]}
+              labels={APPLIANCE_ITEM_LABELS}
+              selected={appliances}
+              onToggle={(v) => setAppliances((prev) => toggle(prev, v))}
+            />
+          </div>
+          <label className="flex items-center gap-2.5 pt-1 text-sm">
+            <Switch checked={lightingNeeded} onCheckedChange={setLightingNeeded} />
+            Нужна подсветка (врезная светодиодная лента)
+          </label>
+        </FormSection>
+      )}
+
+      <FormSection step={showApplianceSection ? 8 : 7} title="Финансовые и временные рамки">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-1.5">
+            <Label htmlFor="deal-amount">Примерная сумма, ₸</Label>
+            <Input
+              id="deal-amount"
+              type="number"
+              min={0}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Предоплата {prepaymentPercent}% / финальный платёж {finalPercent}% · комиссия платформы{' '}
+              {commissionPercent}%
+            </p>
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="client-budget">Ожидаемый бюджет клиента, ₸</Label>
+            <Input
+              id="client-budget"
+              type="number"
+              min={0}
+              value={clientBudget}
+              onChange={(e) => setClientBudget(e.target.value)}
+              placeholder="Необязательно"
+            />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="deal-production-days">Ориентировочный срок изготовления, дней</Label>
+            <Input
+              id="deal-production-days"
+              type="number"
+              min={0}
+              value={estimatedProductionDays}
+              onChange={(e) => setEstimatedProductionDays(e.target.value)}
+              placeholder="Необязательно"
+            />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="desired-timeline">Желаемые сроки реализации</Label>
+            <Input
+              id="desired-timeline"
+              value={desiredTimeline}
+              onChange={(e) => setDesiredTimeline(e.target.value)}
+              placeholder="Например, к Новому году"
+            />
+          </div>
+          <div className="grid gap-1.5 sm:col-span-2">
+            <Label htmlFor="reference-link">Ссылка на референс / дизайн-проект</Label>
+            <Input
+              id="reference-link"
+              value={referenceLink}
+              onChange={(e) => setReferenceLink(e.target.value)}
+              placeholder="Необязательно"
+            />
+          </div>
+        </div>
+      </FormSection>
 
       <Button type="submit" disabled={!canSubmit} className="w-fit">
         {submitLabel}

@@ -80,6 +80,7 @@ function specFields(input: DealSpecInput) {
     contactPhone: input.contactPhone ?? null,
     category: input.category ?? null,
     hasUpholstery: input.hasUpholstery ?? false,
+    configuration: input.configuration ?? null,
     widthCm: input.widthCm ?? null,
     heightCm: input.heightCm ?? null,
     depthCm: input.depthCm ?? null,
@@ -88,6 +89,18 @@ function specFields(input: DealSpecInput) {
     finish: input.finish ?? null,
     qualityTier: input.qualityTier ?? null,
     hardwareTier: input.hardwareTier ?? null,
+    facadeMaterial: input.facadeMaterial ?? null,
+    facadeType: input.facadeType ?? null,
+    countertopType: input.countertopType ?? null,
+    openingSystem: input.openingSystem ?? null,
+    drawerCount: input.drawerCount ?? null,
+    specialMechanisms: input.specialMechanisms ?? [],
+    applianceMount: input.applianceMount ?? null,
+    appliances: input.appliances ?? [],
+    lightingNeeded: input.lightingNeeded ?? false,
+    clientBudget: input.clientBudget ?? null,
+    desiredTimeline: input.desiredTimeline ?? null,
+    referenceLink: input.referenceLink ?? null,
     estimatedProductionDays: input.estimatedProductionDays ?? null,
   }
 }
@@ -103,6 +116,7 @@ export function dealToSpecInput(deal: Deal): DealSpecInput {
     contactPhone: deal.contactPhone,
     category: deal.category,
     hasUpholstery: deal.hasUpholstery,
+    configuration: deal.configuration,
     widthCm: deal.widthCm,
     heightCm: deal.heightCm,
     depthCm: deal.depthCm,
@@ -111,6 +125,18 @@ export function dealToSpecInput(deal: Deal): DealSpecInput {
     finish: deal.finish,
     qualityTier: deal.qualityTier,
     hardwareTier: deal.hardwareTier,
+    facadeMaterial: deal.facadeMaterial,
+    facadeType: deal.facadeType,
+    countertopType: deal.countertopType,
+    openingSystem: deal.openingSystem,
+    drawerCount: deal.drawerCount,
+    specialMechanisms: deal.specialMechanisms,
+    applianceMount: deal.applianceMount,
+    appliances: deal.appliances,
+    lightingNeeded: deal.lightingNeeded,
+    clientBudget: deal.clientBudget,
+    desiredTimeline: deal.desiredTimeline,
+    referenceLink: deal.referenceLink,
     estimatedProductionDays: deal.estimatedProductionDays,
   }
 }
@@ -135,7 +161,6 @@ export function createDeal(input: CreateDealInput): Deal {
     acceptanceRemarks: null,
     cancellationReason: null,
     cancelledBy: null,
-    measurementConfirmedAt: null,
   }
 }
 
@@ -146,9 +171,6 @@ export function updateDealSpec(deal: Deal, input: DealSpecInput): Deal {
     // Условия изменились после того, как деньги/статус уже могли зависеть от согласия клиента —
     // повторное согласие обязательно, иначе клиент может принять устаревшие условия.
     clientAccepted: deal.status === 'negotiation' ? false : deal.clientAccepted,
-    // Тот же повод, что и для clientAccepted: подтверждённый замер мог относиться к старым
-    // размерам — после правки характеристик его нужно подтверждать заново.
-    measurementConfirmedAt: deal.status === 'negotiation' ? null : deal.measurementConfirmedAt,
     ...specFields(input),
   }
 }
@@ -172,6 +194,7 @@ export function requestRevision(
 ): { deal: Deal; revision: RevisionEntry } {
   assertStatus(deal, 'negotiation')
   const revision: RevisionEntry = {
+    requestId: generateId(),
     dealId: deal.id,
     field,
     oldValue,
@@ -180,6 +203,31 @@ export function requestRevision(
     at: new Date().toISOString(),
   }
   return { deal: { ...deal, clientAccepted: false }, revision }
+}
+
+// Батч из нескольких изменённых полей одним запросом — единый requestId на всю группу (не
+// по одному на поле), чтобы RevisionDiffList мог надёжно сгруппировать их в одну карточку
+// "было/стало" вместо N отдельных карточек на одно и то же обращение клиента. Группировка по
+// requestId, а не по `at` — два отдельных запроса теоретически могут получить одинаковую
+// метку времени (миллисекундная точность), id — нет.
+export function requestRevisions(
+  deal: Deal,
+  changes: { field: string; oldValue: string; newValue: string }[],
+  comment: string,
+): { deal: Deal; revisions: RevisionEntry[] } {
+  assertStatus(deal, 'negotiation')
+  const requestId = generateId()
+  const at = new Date().toISOString()
+  const revisions: RevisionEntry[] = changes.map((c) => ({
+    requestId,
+    dealId: deal.id,
+    field: c.field,
+    oldValue: c.oldValue,
+    newValue: c.newValue,
+    comment,
+    at,
+  }))
+  return { deal: { ...deal, clientAccepted: false }, revisions }
 }
 
 export function clientAccepts(deal: Deal): Deal {
@@ -304,9 +352,4 @@ export function cancelDeal(deal: Deal, actor: Actor, reason: string): Deal {
   assertStatusOneOf(deal, CANCELLABLE_STATUSES)
   const trimmedReason = reason.trim() || null
   return withStatus({ ...deal, cancelledBy: actor, cancellationReason: trimmedReason }, 'cancelled')
-}
-
-export function confirmMeasurement(deal: Deal): Deal {
-  assertStatus(deal, 'negotiation')
-  return { ...deal, measurementConfirmedAt: new Date().toISOString() }
 }

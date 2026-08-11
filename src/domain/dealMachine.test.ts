@@ -3,7 +3,6 @@ import {
   callOperator,
   cancelDeal,
   clientAccepts,
-  confirmMeasurement,
   createDeal,
   freezeDispute,
   initiateRefund,
@@ -11,6 +10,7 @@ import {
   onboardClient,
   pay,
   requestRevision,
+  requestRevisions,
   resolveDispute,
   retryPayment,
   sendToClient,
@@ -74,6 +74,17 @@ describe('createDeal', () => {
     expect(other.slug).not.toBe(deal.slug)
   })
 
+  it('дефолты полей формы заявки: мультиселекты — пустые массивы, подсветка выключена, остальное — null', () => {
+    const deal = createDeal(baseInput)
+    expect(deal.configuration).toBeNull()
+    expect(deal.specialMechanisms).toEqual([])
+    expect(deal.appliances).toEqual([])
+    expect(deal.lightingNeeded).toBe(false)
+    expect(deal.clientBudget).toBeNull()
+    expect(deal.desiredTimeline).toBeNull()
+    expect(deal.referenceLink).toBeNull()
+  })
+
   it('выдаёт гарантию сразу при создании — guaranteeIssuedAt проставлен валидной датой не в будущем', () => {
     const before = Date.now()
     const deal = createDeal(baseInput)
@@ -100,10 +111,10 @@ describe('updateDealSpec', () => {
       heightCm: 90,
       depthCm: 100,
       lengthCm: null,
-      material: 'other',
+      material: 'mdf',
       finish: 'серый велюр',
       qualityTier: 'premium',
-      hardwareTier: 'standard',
+      hardwareTier: 'mid',
       estimatedProductionDays: 21,
     })
     expect(deal.title).toBe('Диван на заказ')
@@ -139,14 +150,6 @@ describe('updateDealSpec', () => {
     expect(updated.clientAccepted).toBe(false)
   })
 
-  it('сбрасывает measurementConfirmedAt в negotiation — подтверждённый замер мог относиться к старым размерам', () => {
-    const measured = confirmMeasurement(toNegotiation())
-    expect(measured.measurementConfirmedAt).toBeTruthy()
-
-    const updated = updateDealSpec(measured, { ...baseInput, widthCm: 250 })
-    expect(updated.status).toBe('negotiation')
-    expect(updated.measurementConfirmedAt).toBeNull()
-  })
 })
 
 describe('sendToClient', () => {
@@ -178,6 +181,50 @@ describe('requestRevision', () => {
     expect(updated.status).toBe('negotiation')
     expect(revision.oldValue).toBe('1000000')
     expect(revision.newValue).toBe('950000')
+    expect(revision.requestId).toBeTruthy()
+  })
+
+  it('два отдельных вызова получают разные requestId, даже если совпадёт at', () => {
+    const deal = toNegotiation()
+    const first = requestRevision(deal, 'amount', '1000000', '950000', '')
+    const second = requestRevision(deal, 'deadline', '10', '14', '')
+    expect(first.revision.requestId).not.toBe(second.revision.requestId)
+  })
+})
+
+describe('requestRevisions', () => {
+  it('недоступен вне negotiation', () => {
+    expect(() =>
+      requestRevisions(toAwaitingClient(), [{ field: 'amount', oldValue: '1', newValue: '2' }], ''),
+    ).toThrow()
+  })
+
+  it('создаёт по записи на каждое изменённое поле, все с одинаковым at и комментарием', () => {
+    const deal = toNegotiation()
+    const { deal: updated, revisions } = requestRevisions(
+      deal,
+      [
+        { field: 'material', oldValue: 'ЛДСП Стандарт', newValue: 'МДФ' },
+        { field: 'heightCm', oldValue: '—', newValue: '250' },
+      ],
+      'нужен апгрейд',
+    )
+    expect(updated.status).toBe('negotiation')
+    expect(revisions).toHaveLength(2)
+    expect(revisions[0].at).toBe(revisions[1].at)
+    // requestId — не at: две отдельные группы теоретически могут получить одинаковую метку
+    // времени (миллисекундная точность у Date.toISOString), группировка в UI полагается на id.
+    expect(revisions[0].requestId).toBe(revisions[1].requestId)
+    expect(revisions[0].requestId).toBeTruthy()
+    expect(revisions.every((r) => r.comment === 'нужен апгрейд')).toBe(true)
+    expect(revisions[0].field).toBe('material')
+    expect(revisions[1].field).toBe('heightCm')
+  })
+
+  it('сбрасывает clientAccepted, как и одиночный requestRevision', () => {
+    const accepted = clientAccepts(toNegotiation())
+    const { deal } = requestRevisions(accepted, [{ field: 'amount', oldValue: '1', newValue: '2' }], '')
+    expect(deal.clientAccepted).toBe(false)
   })
 })
 
@@ -353,24 +400,6 @@ describe('cancelDeal', () => {
   it('пустая причина сохраняется как null, а не пустая строка', () => {
     const deal = cancelDeal(toNegotiation(), 'client', '   ')
     expect(deal.cancellationReason).toBeNull()
-  })
-})
-
-describe('confirmMeasurement', () => {
-  it('доступен только в negotiation', () => {
-    expect(() => confirmMeasurement(createDeal(baseInput))).toThrow()
-    expect(() => confirmMeasurement(toAwaitingClient())).toThrow()
-    expect(() => confirmMeasurement(toContractSigning())).toThrow()
-  })
-
-  it('проставляет measurementConfirmedAt валидной датой, не меняя статус и историю статусов', () => {
-    const before = toNegotiation()
-    const beforeTime = Date.now()
-    const after = confirmMeasurement(before)
-    expect(after.status).toBe('negotiation')
-    expect(after.statusHistory).toEqual(before.statusHistory)
-    expect(after.measurementConfirmedAt).toBeTruthy()
-    expect(new Date(after.measurementConfirmedAt!).getTime()).toBeGreaterThanOrEqual(beforeTime)
   })
 })
 

@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { PayoutRequisitesDialog } from './PayoutRequisitesDialog'
 import { calculateAvailableBalance } from '../domain/balance'
-import { formatDateTime, formatMoney, maskCard } from '../domain/statusLabels'
+import { formatDateTime, formatMoney, maskAccountNumber } from '../domain/statusLabels'
 import { useDemoActions } from '../store/DemoProvider'
 import type { PayoutRequisites, Transaction, TransferRequest } from '../domain/types'
 
@@ -41,7 +41,7 @@ export function DealBalance({
           Баланс на счету Asia Mebel
           {payoutRequisites && (
             <span className="ml-2 font-normal text-muted-foreground">
-              · на карту {maskCard(payoutRequisites.cardNumber)}
+              · {payoutRequisites.bankName}, счёт {maskAccountNumber(payoutRequisites.accountNumber)}
             </span>
           )}
         </h2>
@@ -91,7 +91,7 @@ export function DealBalance({
       ) : (
         showRequisitesPrompt && (
           <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-warning/30 bg-warning/10 px-3.5 py-2.5 text-sm text-warning">
-            <span>Укажите реквизиты, чтобы запрашивать переводы на карту.</span>
+            <span>Укажите реквизиты, чтобы запрашивать переводы на счёт.</span>
             <PayoutRequisitesDialog triggerLabel="Добавить реквизиты" />
           </div>
         )

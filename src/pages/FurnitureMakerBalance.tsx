@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom'
 import { BackLink } from '../components/BackLink'
 import { DealBalance } from '../components/DealBalance'
-import { PayoutRequisitesDialog } from '../components/PayoutRequisitesDialog'
 import { calculateTotalBalance } from '../domain/balance'
 import { formatMoney } from '../domain/statusLabels'
 import { useDemoState } from '../store/DemoProvider'
@@ -30,9 +29,12 @@ export function FurnitureMakerBalance() {
       </div>
 
       {!payoutRequisites && dealsWithMoney.length > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-warning/30 bg-warning/10 px-3.5 py-2.5 text-sm text-warning">
-          <span>Укажите реквизиты, чтобы запрашивать переводы на карту.</span>
-          <PayoutRequisitesDialog triggerLabel="Добавить реквизиты" />
+        <div className="rounded-md border border-warning/30 bg-warning/10 px-3.5 py-2.5 text-sm text-warning">
+          Реквизиты для выплат ещё не указаны — добавьте их на странице{' '}
+          <Link to="/furniture-maker/verification" className="underline">
+            «Безопасная сделка»
+          </Link>
+          , чтобы запрашивать переводы.
         </div>
       )}
 

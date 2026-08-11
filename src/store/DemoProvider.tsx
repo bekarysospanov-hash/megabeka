@@ -11,7 +11,6 @@ import {
   callOperator as callOperatorFn,
   cancelDeal as cancelDealFn,
   clientAccepts as clientAcceptsFn,
-  confirmMeasurement as confirmMeasurementFn,
   createDeal as createDealFn,
   freezeDispute as freezeDisputeFn,
   initiateRefund as initiateRefundFn,
@@ -19,6 +18,7 @@ import {
   onboardClient as onboardClientFn,
   pay as payFn,
   requestRevision as requestRevisionFn,
+  requestRevisions as requestRevisionsFn,
   resolveDispute as resolveDisputeFn,
   retryPayment as retryPaymentFn,
   sendToClient as sendToClientFn,
@@ -36,6 +36,7 @@ import {
   buildNotificationEvents,
   buildPaymentRetryNotification,
   buildRevisionRequestedNotification,
+  buildRevisionsRequestedNotification,
 } from '../domain/notifications'
 import { seedScenarios } from '../domain/seedScenarios'
 import type {
@@ -116,7 +117,9 @@ function isValidDemoState(value: unknown): value is DemoState {
       Array.isArray(v.disputes) &&
       Array.isArray(v.messages) &&
       Array.isArray(v.attachments) &&
-      (v.payoutRequisites === null || typeof v.payoutRequisites === 'object') &&
+      (v.payoutRequisites === null ||
+        (typeof v.payoutRequisites === 'object' &&
+          typeof (v.payoutRequisites as Record<string, unknown>).bankName === 'string')) &&
       Array.isArray(v.notifications) &&
       (v.furnitureMakerVerification === null || typeof v.furnitureMakerVerification === 'object') &&
       Array.isArray(v.transferRequests)
@@ -124,12 +127,15 @@ function isValidDemoState(value: unknown): value is DemoState {
   ) {
     return false
   }
-  return Object.values(v.deals as Record<string, unknown>).every(
-    (deal) =>
-      typeof (deal as Record<string, unknown>).guaranteeIssuedAt === 'string' &&
-      typeof (deal as Record<string, unknown>).acceptedWithRemarks === 'boolean' &&
-      'measurementConfirmedAt' in (deal as Record<string, unknown>),
-  )
+  return Object.values(v.deals as Record<string, unknown>).every((deal) => {
+    const d = deal as Record<string, unknown>
+    return (
+      typeof d.guaranteeIssuedAt === 'string' &&
+      typeof d.acceptedWithRemarks === 'boolean' &&
+      Array.isArray(d.specialMechanisms) &&
+      Array.isArray(d.appliances)
+    )
+  })
 }
 
 function loadState(): DemoState {
@@ -159,6 +165,12 @@ type Action =
       newValue: string
       comment: string
     }
+  | {
+      type: 'requestRevisions'
+      dealId: string
+      changes: { field: string; oldValue: string; newValue: string }[]
+      comment: string
+    }
   | { type: 'signByFurnitureMaker'; dealId: string; code: string }
   | { type: 'signByClientSms'; dealId: string; code: string }
   | { type: 'submitPayment'; dealId: string; method: PaymentMethod }
@@ -171,12 +183,11 @@ type Action =
   | { type: 'initiateRefund'; dealId: string }
   | { type: 'resolveDispute'; dealId: string }
   | { type: 'cancelDeal'; dealId: string; actor: Actor; reason: string }
-  | { type: 'confirmMeasurement'; dealId: string }
   | { type: 'retryPayment'; dealId: string }
   | { type: 'operatorSetStatus'; dealId: string; status: Deal['status'] }
   | { type: 'addMessage'; dealId: string; author: Actor; text: string }
   | { type: 'addAttachment'; dealId: string; dataUrl: string; addedBy: Actor }
-  | { type: 'setPayoutRequisites'; cardNumber: string; holderName: string }
+  | { type: 'setPayoutRequisites'; bankName: string; accountNumber: string }
   | { type: 'markNotificationRead'; id: string }
   | { type: 'markAllNotificationsRead'; role: Actor }
   | { type: 'setFurnitureMakerVerification'; companyName: string; businessId: string; legalAddress: string }
@@ -252,6 +263,21 @@ function reducer(state: DemoState, action: Action): DemoState {
         // Статус не меняется (остаётся negotiation) — своё, отличимое от общего текста
         // negotiation уведомление, иначе оно молча сливается с "клиент рассматривает условия".
         notifications: [...state.notifications, ...buildRevisionRequestedNotification(deal.id, action.field)],
+      }
+    }
+    case 'requestRevisions': {
+      const { deal, revisions } = requestRevisionsFn(state.deals[action.dealId], action.changes, action.comment)
+      return {
+        ...state,
+        deals: { ...state.deals, [deal.id]: deal },
+        revisions: [...state.revisions, ...revisions],
+        notifications: [
+          ...state.notifications,
+          ...buildRevisionsRequestedNotification(
+            deal.id,
+            action.changes.map((c) => c.field),
+          ),
+        ],
       }
     }
     case 'clientAccepts': {
@@ -368,10 +394,6 @@ function reducer(state: DemoState, action: Action): DemoState {
         notifications: notifyForTransition(state, before, deal),
       }
     }
-    case 'confirmMeasurement': {
-      const deal = confirmMeasurementFn(state.deals[action.dealId])
-      return { ...state, deals: { ...state.deals, [deal.id]: deal } }
-    }
     case 'retryPayment': {
       const deal = retryPaymentFn(state.deals[action.dealId])
       return {
@@ -419,8 +441,8 @@ function reducer(state: DemoState, action: Action): DemoState {
     }
     case 'setPayoutRequisites': {
       const payoutRequisites: PayoutRequisites = {
-        cardNumber: action.cardNumber,
-        holderName: action.holderName,
+        bankName: action.bankName,
+        accountNumber: action.accountNumber,
         savedAt: new Date().toISOString(),
       }
       return { ...state, payoutRequisites }
@@ -568,6 +590,11 @@ export function useDemoActions() {
       ) => dispatch({ type: 'requestRevision', dealId, field, oldValue, newValue, comment }),
       [dispatch],
     ),
+    requestRevisions: useCallback(
+      (dealId: string, changes: { field: string; oldValue: string; newValue: string }[], comment: string) =>
+        dispatch({ type: 'requestRevisions', dealId, changes, comment }),
+      [dispatch],
+    ),
     signByFurnitureMaker: useCallback(
       (dealId: string, code: string) => dispatch({ type: 'signByFurnitureMaker', dealId, code }),
       [dispatch],
@@ -616,10 +643,6 @@ export function useDemoActions() {
         dispatch({ type: 'cancelDeal', dealId, actor, reason }),
       [dispatch],
     ),
-    confirmMeasurement: useCallback(
-      (dealId: string) => dispatch({ type: 'confirmMeasurement', dealId }),
-      [dispatch],
-    ),
     retryPayment: useCallback(
       (dealId: string) => dispatch({ type: 'retryPayment', dealId }),
       [dispatch],
@@ -640,8 +663,8 @@ export function useDemoActions() {
       [dispatch],
     ),
     setPayoutRequisites: useCallback(
-      (cardNumber: string, holderName: string) =>
-        dispatch({ type: 'setPayoutRequisites', cardNumber, holderName }),
+      (bankName: string, accountNumber: string) =>
+        dispatch({ type: 'setPayoutRequisites', bankName, accountNumber }),
       [dispatch],
     ),
     markNotificationRead: useCallback(

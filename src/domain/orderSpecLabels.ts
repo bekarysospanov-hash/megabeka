@@ -1,5 +1,18 @@
 import { Armchair, Baby, BedDouble, Briefcase, ChefHat, DoorOpen, Package, Sofa } from 'lucide-react'
-import type { FurnitureCategory, HardwareTier, MaterialType, QualityTier } from './types'
+import type {
+  ApplianceItem,
+  ApplianceMount,
+  CountertopType,
+  DealConfiguration,
+  FacadeMaterial,
+  FacadeType,
+  FurnitureCategory,
+  HardwareTier,
+  MaterialType,
+  OpeningSystem,
+  QualityTier,
+  SpecialMechanism,
+} from './types'
 
 export const CATEGORY_OPTIONS: { value: FurnitureCategory; label: string; icon: typeof ChefHat }[] = [
   { value: 'kitchen', label: 'Кухня', icon: ChefHat },
@@ -16,23 +29,85 @@ export const CATEGORY_LABELS: Record<FurnitureCategory, string> = Object.fromEnt
   CATEGORY_OPTIONS.map((o) => [o.value, o.label]),
 ) as Record<FurnitureCategory, string>
 
+// Единый источник правды для того, каким категориям релевантны кухонные/техника-поля —
+// используется и формой заказа (что показывать), и сводкой характеристик (что не показывать
+// после того, как категорию сменили правкой и старые кухонные поля остались в данных).
+export const COUNTERTOP_RELEVANT_CATEGORIES: FurnitureCategory[] = ['kitchen']
+export const APPLIANCE_RELEVANT_CATEGORIES: FurnitureCategory[] = ['kitchen', 'living_room']
+
 export const MATERIAL_LABELS: Record<MaterialType, string> = {
-  chipboard: 'ЛДСП',
+  chipboard_standard: 'ЛДСП Стандарт',
+  chipboard_premium: 'ЛДСП Премиум',
   mdf: 'МДФ',
-  solid_wood: 'Массив дерева',
-  other: 'Другое',
 }
 
 export const QUALITY_LABELS: Record<QualityTier, string> = {
-  economy: 'Эконом',
-  standard: 'Стандарт',
+  economy: 'Бюджет',
+  standard: 'Комфорт',
   premium: 'Премиум',
 }
 
 export const HARDWARE_LABELS: Record<HardwareTier, string> = {
-  standard: 'Стандарт',
+  budget: 'Бюджет (Китай)',
+  mid: 'Средний (Boyard/GTV)',
   premium: 'Премиум (Blum/Hettich)',
-  unspecified: 'Не определено',
+}
+
+export const CONFIGURATION_LABELS: Record<DealConfiguration, string> = {
+  straight: 'Прямая',
+  l_shaped: 'Г-образная',
+  u_shaped: 'П-образная',
+  built_in: 'Встроенная',
+  freestanding: 'Корпусная (отдельно стоящая)',
+}
+
+export const FACADE_MATERIAL_LABELS: Record<FacadeMaterial, string> = {
+  chipboard: 'ЛДСП',
+  pvc_film: 'Плёнка ПВХ',
+  plastic_hpl: 'Пластик (HPL/Fenix)',
+  enamel_mdf: 'Эмаль (крашеный МДФ)',
+  veneer_solid: 'Шпон / Массив',
+}
+
+export const FACADE_TYPE_LABELS: Record<FacadeType, string> = {
+  smooth: 'Гладкие',
+  milled: 'Фрезерованные (классика/интегрированная ручка)',
+  glass_showcase: 'Витрины (стекло в профиле)',
+}
+
+export const COUNTERTOP_LABELS: Record<CountertopType, string> = {
+  chipboard_plastic: 'ЛДСП пластик',
+  compact_plate: 'Компакт-плита',
+  acrylic_stone: 'Искусственный камень (акрил)',
+  quartz_agglomerate: 'Кварцевый агломерат',
+}
+
+export const OPENING_SYSTEM_LABELS: Record<OpeningSystem, string> = {
+  handles: 'Накладные ручки',
+  gola_profile: 'Профиль Gola (без ручек)',
+  push_to_open: 'Нажатие (Tip-on / Push-to-open)',
+}
+
+export const SPECIAL_MECHANISM_LABELS: Record<SpecialMechanism, string> = {
+  lifters: 'Подъёмники для верхних шкафов',
+  bottle_racks: 'Бутылочницы',
+  pull_out_baskets: 'Выдвижные корзины',
+  pantographs: 'Пантографы',
+}
+
+export const APPLIANCE_MOUNT_LABELS: Record<ApplianceMount, string> = {
+  built_in: 'Встроенная',
+  freestanding: 'Отдельно стоящая',
+}
+
+export const APPLIANCE_ITEM_LABELS: Record<ApplianceItem, string> = {
+  fridge: 'Холодильник',
+  cooktop: 'Варочная панель',
+  oven: 'Духовой шкаф',
+  microwave: 'СВЧ',
+  dishwasher: 'ПММ',
+  washing_machine: 'Стиральная машина',
+  hood: 'Вытяжка',
 }
 
 export const REVISION_FIELD_LABELS: Record<string, string> = {
@@ -40,18 +115,17 @@ export const REVISION_FIELD_LABELS: Record<string, string> = {
   deadline: 'Срок изготовления',
   title: 'Товар',
   category: 'Тип мебели',
-  material: 'Материал',
+  configuration: 'Конфигурация',
+  material: 'Материал корпуса',
+  facadeMaterial: 'Материал фасадов',
+  facadeType: 'Тип фасадов',
+  countertopType: 'Столешница',
   finish: 'Цвет / отделка',
-  qualityTier: 'Качество',
-  hardwareTier: 'Фурнитура',
-  widthCm: 'Ширина',
+  qualityTier: 'Ценовой сегмент',
+  hardwareTier: 'Класс фурнитуры',
+  openingSystem: 'Система открывания',
+  drawerCount: 'Кол-во ящиков',
   heightCm: 'Высота',
   depthCm: 'Глубина',
   lengthCm: 'Длина',
-}
-
-export function formatDimensions(widthCm: number | null, heightCm: number | null, depthCm: number | null): string | null {
-  const parts = [widthCm, heightCm, depthCm]
-  if (parts.every((p) => p === null)) return null
-  return parts.map((p) => (p === null ? '—' : p)).join(' × ') + ' см'
 }

@@ -4,7 +4,6 @@ import { useDeal, useDealHistory, useDemoActions } from '../store/DemoProvider'
 import { StatusBadge } from '../components/StatusBadge'
 import { RevisionDiffList } from '../components/RevisionDiffList'
 import { DisputePanel } from '../components/DisputePanel'
-import { MessageThread } from '../components/MessageThread'
 import { DemoModeBanner } from '../components/DemoModeBanner'
 import { OrderSpecSummary } from '../components/OrderSpecSummary'
 import { PreliminaryEstimateBanner } from '../components/PreliminaryEstimateBanner'
@@ -115,10 +114,10 @@ function ClientOnboarding({ deal }: { deal: Deal }) {
 
 function ClientDealScreen({ dealId }: { dealId: string }) {
   const deal = useDeal(dealId)!
-  const { revisions, disputes, messages, attachments } = useDealHistory(dealId)
+  const { revisions, disputes, attachments } = useDealHistory(dealId)
   const {
     clientAccepts,
-    requestRevision,
+    requestRevisions,
     signByClientSms,
     submitPayment,
     pay,
@@ -126,7 +125,6 @@ function ClientDealScreen({ dealId }: { dealId: string }) {
     signAct,
     callOperator,
     addAttachment,
-    addMessage,
   } = useDemoActions()
 
   const [showRevisionForm, setShowRevisionForm] = useState(false)
@@ -182,9 +180,7 @@ function ClientDealScreen({ dealId }: { dealId: string }) {
               deal={deal}
               onCancel={() => setShowRevisionForm(false)}
               onSubmit={(revisions, comment) => {
-                for (const revision of revisions) {
-                  requestRevision(deal.id, revision.field, revision.oldValue, revision.newValue, comment)
-                }
+                requestRevisions(deal.id, revisions, comment)
                 setShowRevisionForm(false)
               }}
             />
@@ -282,12 +278,8 @@ function ClientDealScreen({ dealId }: { dealId: string }) {
         </div>
       )}
 
-      {deal.status !== 'draft' && deal.status !== 'awaiting_client' && (
-        <section>
-          <h2 className="mb-2 text-sm font-semibold">Переписка</h2>
-          <MessageThread messages={messages} onSend={(text) => addMessage(deal.id, 'client', text)} />
-        </section>
-      )}
+      {/* Переписка временно скрыта на этом этапе пилота — стороны общаются вне платформы,
+          см. PRD раздел 21. Компонент и данные messages не удалены, чтобы вернуть в одну строку. */}
 
       {ESCALATABLE.has(deal.status) && (
         <section className="grid gap-2">

@@ -5,7 +5,6 @@ import { StatusBadge } from '../components/StatusBadge'
 import { RevisionDiffList } from '../components/RevisionDiffList'
 import { TransactionList } from '../components/TransactionList'
 import { DisputePanel } from '../components/DisputePanel'
-import { MessageThread } from '../components/MessageThread'
 import { DemoModeBanner } from '../components/DemoModeBanner'
 import { OrderSpecSummary } from '../components/OrderSpecSummary'
 import { AttachmentGallery } from '../components/AttachmentGallery'
@@ -26,7 +25,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { CANCELLABLE_STATUSES, dealToSpecInput, ESCALATABLE_STATUSES } from '../domain/dealMachine'
 import { generateActText, generateContractText } from '../domain/contractTemplate'
 import { calculateGuaranteeReserve, GUARANTEE_RESERVE_LIMIT } from '../domain/guaranteeReserve'
-import { formatDateTime, formatMoney } from '../domain/statusLabels'
+import { formatMoney } from '../domain/statusLabels'
 
 const ESCALATABLE = new Set(ESCALATABLE_STATUSES)
 const CANCELLABLE = new Set(CANCELLABLE_STATUSES)
@@ -34,7 +33,7 @@ const CANCELLABLE = new Set(CANCELLABLE_STATUSES)
 export function FurnitureMakerDealDetail() {
   const { id } = useParams<{ id: string }>()
   const deal = useDeal(id)
-  const { revisions, transactions, disputes, messages, attachments, transferRequests } = useDealHistory(id)
+  const { revisions, transactions, disputes, attachments, transferRequests } = useDealHistory(id)
   const { payoutRequisites, deals, furnitureMakerVerification } = useDemoState()
   const {
     sendToClient,
@@ -44,8 +43,6 @@ export function FurnitureMakerDealDetail() {
     callOperator,
     setRole,
     updateDeal,
-    addMessage,
-    confirmMeasurement,
   } = useDemoActions()
   const navigate = useNavigate()
   const [operatorReason, setOperatorReason] = useState('')
@@ -63,11 +60,21 @@ export function FurnitureMakerDealDetail() {
   // Резерв гарантии актуален только пока сделка не отправлена — не считаем его на каждый
   // рендер для сделок в остальных статусах.
   const missingRequisites = deal.status === 'draft' && !payoutRequisites
+  const missingVerification = deal.status === 'draft' && !furnitureMakerVerification
   const availableReserve =
     deal.status === 'draft' ? calculateGuaranteeReserve(Object.values(deals)).available : 0
   const reserveShortfall = deal.amount - availableReserve
   const reserveExceeded = deal.status === 'draft' && reserveShortfall > 0
-  const sendBlocked = missingRequisites || reserveExceeded
+  const sendBlocked = missingRequisites || missingVerification || reserveExceeded
+  // Последовательные шаги вместо стопки баннеров разом — на draft показываем ровно одно
+  // следующее требование за раз, в этом порядке приоритета.
+  const nextRequirement: 'requisites' | 'verification' | 'reserve' | null = missingRequisites
+    ? 'requisites'
+    : missingVerification
+      ? 'verification'
+      : reserveExceeded
+        ? 'reserve'
+        : null
   // Зона D (Коммуникация) не рендерится вовсе, если её содержимое целиком скрыто условиями
   // ниже — иначе на draft/awaiting_client показывался бы пустой заголовок зоны без контента.
   // CANCELLABLE/ESCALATABLE — подмножества "не draft и не awaiting_client", отдельно их
@@ -96,26 +103,28 @@ export function FurnitureMakerDealDetail() {
       {deal.status === 'draft' && (
         <div className="grid gap-3">
           <p className="text-sm">Условия заполнены. Отправьте ссылку клиенту, чтобы начать согласование.</p>
-          {missingRequisites && (
+
+          {nextRequirement === 'requisites' && (
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-warning/30 bg-warning/10 px-3.5 py-2.5 text-sm text-warning">
               <span>Прежде чем отправить сделку клиенту, укажите реквизиты для выплат.</span>
               <PayoutRequisitesDialog triggerLabel="Добавить реквизиты" />
             </div>
           )}
-          {!furnitureMakerVerification && (
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-info/30 bg-info/10 px-3.5 py-2.5 text-sm text-info">
-              <span>Вы ещё не прошли верификацию — клиенты увидят, что вы проверенный продавец.</span>
+          {nextRequirement === 'verification' && (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-warning/30 bg-warning/10 px-3.5 py-2.5 text-sm text-warning">
+              <span>Прежде чем отправить сделку клиенту, пройдите верификацию.</span>
               <Button asChild variant="outline" size="sm">
                 <Link to="/furniture-maker/verification">Пройти верификацию</Link>
               </Button>
             </div>
           )}
-          {reserveExceeded && (
+          {nextRequirement === 'reserve' && (
             <p className="text-sm text-warning">
               Резерв гарантии исчерпан: не хватает {formatMoney(reserveShortfall)}. Дождитесь освобождения
               резерва по другим сделкам.
             </p>
           )}
+
           <div className="flex flex-wrap gap-2">
             <Button disabled={sendBlocked} onClick={() => sendToClient(deal.id)}>
               Отправить клиенту
@@ -181,31 +190,13 @@ export function FurnitureMakerDealDetail() {
               />
             )}
           </section>
-          {deal.measurementConfirmedAt ? (
-            <p className="text-xs text-muted-foreground">
-              Замер подтверждён {formatDateTime(deal.measurementConfirmedAt)}.
-            </p>
-          ) : (
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-warning/30 bg-warning/10 px-3.5 py-2.5 text-sm text-warning">
-              <span>Замер ещё не подтверждён — характеристики считаются предварительными.</span>
-              <Button variant="outline" size="sm" onClick={() => confirmMeasurement(deal.id)}>
-                Подтвердить замер
-              </Button>
-            </div>
-          )}
           {deal.clientAccepted ? (
-            <div className="grid gap-2">
-              {!deal.measurementConfirmedAt && (
-                <p className="text-sm text-warning">Подтвердите замер, прежде чем подписывать договор.</p>
-              )}
-              <SignDocumentDialog
-                documentTitle={`Договор подряда № ${deal.slug}`}
-                documentText={generateContractText(deal)}
-                triggerLabel="Посмотреть и подписать договор"
-                onSign={(code) => signByFurnitureMaker(deal.id, code)}
-                disabled={!deal.measurementConfirmedAt}
-              />
-            </div>
+            <SignDocumentDialog
+              documentTitle={`Договор подряда № ${deal.slug}`}
+              documentText={generateContractText(deal)}
+              triggerLabel="Посмотреть и подписать договор"
+              onSign={(code) => signByFurnitureMaker(deal.id, code)}
+            />
           ) : (
             <p className="text-sm text-muted-foreground">Ожидаем решения клиента — согласия или правок.</p>
           )}
@@ -341,12 +332,8 @@ export function FurnitureMakerDealDetail() {
             </div>
           )}
 
-          {deal.status !== 'draft' && deal.status !== 'awaiting_client' && (
-            <section>
-              <h3 className="mb-2 text-sm font-semibold">Переписка</h3>
-              <MessageThread messages={messages} onSend={(text) => addMessage(deal.id, 'furniture_maker', text)} />
-            </section>
-          )}
+          {/* Переписка временно скрыта на этом этапе пилота — стороны общаются вне платформы,
+              см. PRD раздел 21. Компонент и данные messages не удалены, чтобы вернуть в одну строку. */}
 
           {ESCALATABLE.has(deal.status) && (
             <section className="grid gap-2">

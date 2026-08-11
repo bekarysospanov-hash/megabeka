@@ -1,16 +1,54 @@
-import { CATEGORY_LABELS, HARDWARE_LABELS, MATERIAL_LABELS, QUALITY_LABELS, formatDimensions } from './orderSpecLabels'
+import {
+  APPLIANCE_ITEM_LABELS,
+  APPLIANCE_MOUNT_LABELS,
+  CATEGORY_LABELS,
+  CONFIGURATION_LABELS,
+  COUNTERTOP_LABELS,
+  FACADE_MATERIAL_LABELS,
+  FACADE_TYPE_LABELS,
+  HARDWARE_LABELS,
+  MATERIAL_LABELS,
+  OPENING_SYSTEM_LABELS,
+  QUALITY_LABELS,
+  SPECIAL_MECHANISM_LABELS,
+} from './orderSpecLabels'
 import { formatDate, formatMoney } from './statusLabels'
 import type { Deal } from './types'
 
 export function generateContractText(deal: Deal): string {
   const clientName = deal.clientName || deal.contactName || '__________________'
   const category = deal.category ? CATEGORY_LABELS[deal.category] : 'не указан'
-  const dimensions = formatDimensions(deal.widthCm, deal.heightCm, deal.depthCm) ?? 'уточняются при замере на объекте'
-  const length = deal.lengthCm != null ? `; длина — ${deal.lengthCm} см` : ''
+  const configuration = deal.configuration ? CONFIGURATION_LABELS[deal.configuration] : 'не указана'
+  const dimensions =
+    deal.heightCm != null || deal.depthCm != null
+      ? `высота ${deal.heightCm ?? '—'} см, глубина ${deal.depthCm ?? '—'} см`
+      : 'уточняются при замере на объекте'
+  const length = deal.lengthCm != null ? `, длина (по стенам) — ${deal.lengthCm} см` : ''
   const material = deal.material ? MATERIAL_LABELS[deal.material] : 'уточняется'
+  const facadeMaterial = deal.facadeMaterial ? FACADE_MATERIAL_LABELS[deal.facadeMaterial] : 'уточняется'
+  const facadeType = deal.facadeType ? FACADE_TYPE_LABELS[deal.facadeType] : 'уточняется'
+  const countertop = deal.countertopType ? COUNTERTOP_LABELS[deal.countertopType] : null
   const finish = deal.finish || 'уточняется'
   const quality = deal.qualityTier ? QUALITY_LABELS[deal.qualityTier] : 'уточняется'
   const hardware = deal.hardwareTier ? HARDWARE_LABELS[deal.hardwareTier] : 'уточняется'
+  const openingSystem = deal.openingSystem ? OPENING_SYSTEM_LABELS[deal.openingSystem] : 'уточняется'
+  const drawerCount = deal.drawerCount != null ? `${deal.drawerCount} шт.` : null
+  const specialMechanisms =
+    deal.specialMechanisms.length > 0
+      ? deal.specialMechanisms.map((m) => SPECIAL_MECHANISM_LABELS[m]).join(', ')
+      : null
+  const applianceMount = deal.applianceMount ? APPLIANCE_MOUNT_LABELS[deal.applianceMount] : null
+  const appliances =
+    deal.appliances.length > 0 ? deal.appliances.map((a) => APPLIANCE_ITEM_LABELS[a]).join(', ') : null
+  const lighting = deal.lightingNeeded ? 'нужна (врезная светодиодная лента)' : null
+  const extras = [
+    drawerCount ? `выдвижных ящиков — ${drawerCount}` : null,
+    specialMechanisms ? `специальные механизмы — ${specialMechanisms}` : null,
+    applianceMount ? `техника — ${applianceMount}` : null,
+    appliances ? `встраиваемая техника — ${appliances}` : null,
+    lighting ? `подсветка — ${lighting}` : null,
+  ].filter((s): s is string => s !== null)
+  const extrasText = extras.length > 0 ? extras.join('; ') : 'не указано'
   const productionDeadline = deal.estimatedProductionDays != null
     ? `${deal.estimatedProductionDays} дн. с момента подписания настоящего Договора обеими Сторонами`
     : 'согласуется Сторонами дополнительно после проведения замера и уточнения характеристик'
@@ -26,9 +64,10 @@ export function generateContractText(deal: Deal): string {
 1. ПРЕДМЕТ ДОГОВОРА
 1.1. Исполнитель обязуется изготовить и передать Заказчику мебель согласно согласованной спецификации (далее — «Изделие»), а Заказчик обязуется принять и оплатить Изделие на условиях настоящего Договора.
 1.2. Наименование заказа: «${deal.title}».
-1.3. Тип мебели: ${category}.
-1.4. Характеристики Изделия: размеры — ${dimensions}${length}; материал корпуса — ${material}; отделка — ${finish}; класс фурнитуры — ${hardware}; уровень исполнения — ${quality}.
-1.5. Указанные характеристики являются предварительными и могут быть уточнены Сторонами после проведения замера на объекте Заказчика.
+1.3. Тип мебели: ${category}, конфигурация — ${configuration}.
+1.4. Характеристики Изделия: размеры — ${dimensions}${length}; материал корпуса — ${material}; материал фасадов — ${facadeMaterial}; тип фасадов — ${facadeType}${countertop ? `; столешница — ${countertop}` : ''}; отделка — ${finish}; класс фурнитуры — ${hardware}; система открывания — ${openingSystem}; уровень исполнения — ${quality}.
+1.5. Дополнительно: ${extrasText}.
+1.6. Указанные характеристики являются предварительными и могут быть уточнены Сторонами после проведения замера на объекте Заказчика.
 
 2. ЦЕНА ДОГОВОРА И ПОРЯДОК РАСЧЁТОВ
 2.1. Стоимость Изделия составляет ${formatMoney(deal.amount)} и является предварительной оценкой до проведения замера.

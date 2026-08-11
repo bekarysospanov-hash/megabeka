@@ -48,8 +48,8 @@ export function formatMoney(amount: number): string {
   }).format(amount)
 }
 
-export function maskCard(cardNumber: string): string {
-  const digits = cardNumber.replace(/\D/g, '')
+export function maskAccountNumber(accountNumber: string): string {
+  const digits = accountNumber.replace(/\D/g, '')
   return digits.length >= 4 ? `•• ${digits.slice(-4)}` : '••••'
 }
 
