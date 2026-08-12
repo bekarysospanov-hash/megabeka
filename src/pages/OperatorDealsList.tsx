@@ -5,16 +5,25 @@ import { StatusBadge } from '../components/StatusBadge'
 import { CategoryTag } from '../components/CategoryTag'
 import { Card } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { daysSinceLastChange, isDealStalled } from '../domain/attention'
 import { STATUS_LABELS, formatMoney } from '../domain/statusLabels'
-import type { DealStatus } from '../domain/types'
+import type { Deal, DealStatus, RevisionEntry } from '../domain/types'
+
+// Споры — на первом месте (как и раньше), зависшие сделки без движения — следом, чтобы не
+// требовать от сторон обязательно нажимать «Позвать оператора» самим (раздел 12 PRD, №7).
+function priority(deal: Deal, revisions: RevisionEntry[]): number {
+  if (deal.status === 'dispute_open') return 2
+  if (isDealStalled(deal, revisions)) return 1
+  return 0
+}
 
 export function OperatorDealsList() {
-  const { deals } = useDemoState()
+  const { deals, revisions } = useDemoState()
   const [filter, setFilter] = useState<DealStatus | 'all'>('all')
 
   const list = Object.values(deals)
     .filter((d) => filter === 'all' || d.status === filter)
-    .sort((a, b) => Number(b.status === 'dispute_open') - Number(a.status === 'dispute_open'))
+    .sort((a, b) => priority(b, revisions) - priority(a, revisions))
 
   return (
     <div className="grid gap-6">
@@ -41,7 +50,9 @@ export function OperatorDealsList() {
               className={
                 deal.status === 'dispute_open'
                   ? 'border-destructive/40 bg-destructive/5 p-4 transition-colors hover:border-destructive/60'
-                  : 'p-4 transition-colors hover:border-primary/40 hover:bg-accent/40'
+                  : isDealStalled(deal, revisions)
+                    ? 'border-warning/40 bg-warning/5 p-4 transition-colors hover:border-warning/60'
+                    : 'p-4 transition-colors hover:border-primary/40 hover:bg-accent/40'
               }
             >
               <div className="flex items-start justify-between gap-4">
@@ -51,6 +62,11 @@ export function OperatorDealsList() {
                     <CategoryTag category={deal.category} />
                     {deal.status === 'dispute_open' && (
                       <span className="text-xs font-medium text-destructive">⚠ требует внимания</span>
+                    )}
+                    {deal.status !== 'dispute_open' && isDealStalled(deal, revisions) && (
+                      <span className="text-xs font-medium text-warning">
+                        ⚠ {daysSinceLastChange(deal, revisions)} дн. без движения
+                      </span>
                     )}
                   </div>
                   <div className="text-sm text-muted-foreground">

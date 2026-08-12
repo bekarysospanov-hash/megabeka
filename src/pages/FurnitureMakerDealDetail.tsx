@@ -13,6 +13,7 @@ import { PayoutRequisitesDialog } from '../components/PayoutRequisitesDialog'
 import { GuaranteeBanner } from '../components/GuaranteeBanner'
 import { GuaranteeCertificateDialog, hasSeenCertificate } from '../components/GuaranteeCertificateDialog'
 import { CancelDealDialog } from '../components/CancelDealDialog'
+import { ContractPreviewDialog } from '../components/ContractPreviewDialog'
 import { StepGuidanceCard } from '../components/StepGuidanceCard'
 import { DealProgressBar } from '../components/DealProgressBar'
 import { DealBalance } from '../components/DealBalance'
@@ -132,6 +133,7 @@ export function FurnitureMakerDealDetail() {
             <Button variant="outline" onClick={() => navigate(`/furniture-maker/deal/${deal.id}/edit`)}>
               Редактировать
             </Button>
+            <ContractPreviewDialog deal={deal} />
           </div>
         </div>
       )}

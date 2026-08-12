@@ -1,6 +1,6 @@
 import type { Deal } from './types'
 
-const DAY_MS = 24 * 60 * 60 * 1000
+export const DAY_MS = 24 * 60 * 60 * 1000
 
 export interface ProductionDeadline {
   startedAt: string
