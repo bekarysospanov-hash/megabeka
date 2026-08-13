@@ -138,13 +138,13 @@ export function buildInterimPaidNotification(dealId: string): NotificationEvent[
       ...base,
       id: generateId(),
       recipientRole: 'furniture_maker',
-      text: 'Клиент внёс промежуточный платёж',
+      text: 'Промежуточный транш открыт — доступен для запроса перевода',
     },
     {
       ...base,
       id: generateId(),
       recipientRole: 'operator',
-      text: 'Клиент внёс промежуточный платёж по сделке',
+      text: 'Мебельщик запросил доступность промежуточного транша по сделке',
     },
   ]
 }

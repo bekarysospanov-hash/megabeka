@@ -36,11 +36,11 @@ export function PayoutTimeline({ deal, transactions }: { deal: Deal; transaction
         <div className="flex items-start gap-3 rounded-md border p-3 text-sm">
           <MilestoneDot done={Boolean(interim)} />
           <div>
-            <div className="font-medium">Промежуточный платёж ({deal.interimPercent}%)</div>
+            <div className="font-medium">Промежуточный транш ({deal.interimPercent}%)</div>
             <div className="text-muted-foreground">
               {interim
                 ? `${formatMoney(interim.amount)} · ${formatDateTime(interim.paidAt)}`
-                : 'Клиент вносит в любой момент во время производства'}
+                : 'Мебельщик запрашивает доступность в любой момент во время производства'}
             </div>
           </div>
         </div>

@@ -35,6 +35,7 @@ export function FurnitureMakerDealDetail() {
     signByFurnitureMaker,
     markProductionDone,
     signActByFurnitureMaker,
+    payInterim,
     setRole,
     updateDeal,
   } = useDemoActions()
@@ -226,6 +227,17 @@ export function FurnitureMakerDealDetail() {
           {deal.status === 'in_production' && deal.actRejectionReason && (
             <div className="rounded-md border border-warning/30 bg-warning/10 px-3.5 py-2.5 text-sm text-warning">
               Клиент отклонил приёмку: «{deal.actRejectionReason}»
+            </div>
+          )}
+          {deal.status === 'in_production' && deal.interimPercent > 0 && !deal.interimPaidAt && (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-info/30 bg-info/10 px-3.5 py-2.5 text-sm text-info">
+              <span>
+                Промежуточный транш ({deal.interimPercent}%) уже удерживается платформой — можно запросить
+                доступность в любой момент.
+              </span>
+              <Button size="sm" onClick={() => payInterim(deal.id)}>
+                Запросить доступность транша
+              </Button>
             </div>
           )}
           <Button className="w-fit" onClick={() => markProductionDone(deal.id)}>

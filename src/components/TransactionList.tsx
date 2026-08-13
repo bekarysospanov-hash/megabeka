@@ -3,7 +3,7 @@ import type { Transaction } from '../domain/types'
 
 const TYPE_LABELS: Record<Transaction['type'], string> = {
   prepayment: 'Предоплата',
-  interim: 'Промежуточный платёж',
+  interim: 'Промежуточный транш',
   final: 'Финальный платёж',
 }
 

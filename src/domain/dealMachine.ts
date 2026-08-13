@@ -331,7 +331,7 @@ export function payInterim(deal: Deal): { deal: Deal; transaction: Transaction }
     throw new Error('У сделки нет промежуточного платежа')
   }
   if (deal.interimPaidAt != null) {
-    throw new Error('Промежуточный платёж уже внесён')
+    throw new Error('Промежуточный транш уже открыт')
   }
   const paidAt = new Date().toISOString()
   const transaction: Transaction = {

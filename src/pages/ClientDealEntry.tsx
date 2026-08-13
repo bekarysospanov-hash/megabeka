@@ -121,7 +121,6 @@ function ClientDealScreen({ dealId }: { dealId: string }) {
     retryPayment,
     signAct,
     rejectAct,
-    payInterim,
     addAttachment,
   } = useDemoActions()
 
@@ -231,18 +230,6 @@ function ClientDealScreen({ dealId }: { dealId: string }) {
         <div className="grid gap-3">
           <p className="text-sm text-muted-foreground">Оплата получена, мебельщик готовит заказ.</p>
           {deal.status === 'in_production' && <ProductionTimer deal={deal} />}
-          {deal.status === 'in_production' && deal.interimPercent > 0 && !deal.interimPaidAt && (
-            <div className="grid gap-2 rounded-lg border p-4">
-              <p className="text-sm">
-                Промежуточный платёж ({deal.interimPercent}%): {formatMoney((deal.amount * deal.interimPercent) / 100)}
-              </p>
-              <DemoModeBanner>Оплата имитируется, реальный платёж не проводится.</DemoModeBanner>
-              <PaymentMethodPicker
-                amount={(deal.amount * deal.interimPercent) / 100}
-                onSubmit={() => payInterim(deal.id)}
-              />
-            </div>
-          )}
         </div>
       )}
 
