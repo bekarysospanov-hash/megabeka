@@ -1,18 +1,5 @@
 import { Armchair, Baby, BedDouble, Briefcase, ChefHat, DoorOpen, Package, Sofa } from 'lucide-react'
-import type {
-  ApplianceItem,
-  ApplianceMount,
-  CountertopType,
-  DealConfiguration,
-  FacadeMaterial,
-  FacadeType,
-  FurnitureCategory,
-  HardwareTier,
-  MaterialType,
-  OpeningSystem,
-  QualityTier,
-  SpecialMechanism,
-} from './types'
+import type { ApplianceItem, ApplianceMount, FurnitureCategory, QualityTier, SpecialMechanism } from './types'
 
 export const CATEGORY_OPTIONS: { value: FurnitureCategory; label: string; icon: typeof ChefHat }[] = [
   { value: 'kitchen', label: 'Кухня', icon: ChefHat },
@@ -35,7 +22,7 @@ export const CATEGORY_LABELS: Record<FurnitureCategory, string> = Object.fromEnt
 export const COUNTERTOP_RELEVANT_CATEGORIES: FurnitureCategory[] = ['kitchen']
 export const APPLIANCE_RELEVANT_CATEGORIES: FurnitureCategory[] = ['kitchen', 'living_room']
 
-export const MATERIAL_LABELS: Record<MaterialType, string> = {
+export const MATERIAL_LABELS: Record<string, string> = {
   chipboard_standard: 'ЛДСП Стандарт',
   chipboard_premium: 'ЛДСП Премиум',
   mdf: 'МДФ',
@@ -47,13 +34,13 @@ export const QUALITY_LABELS: Record<QualityTier, string> = {
   premium: 'Премиум',
 }
 
-export const HARDWARE_LABELS: Record<HardwareTier, string> = {
+export const HARDWARE_LABELS: Record<string, string> = {
   budget: 'Бюджет (Китай)',
   mid: 'Средний (Boyard/GTV)',
   premium: 'Премиум (Blum/Hettich)',
 }
 
-export const CONFIGURATION_LABELS: Record<DealConfiguration, string> = {
+export const CONFIGURATION_LABELS: Record<string, string> = {
   straight: 'Прямая',
   l_shaped: 'Г-образная',
   u_shaped: 'П-образная',
@@ -61,7 +48,7 @@ export const CONFIGURATION_LABELS: Record<DealConfiguration, string> = {
   freestanding: 'Корпусная (отдельно стоящая)',
 }
 
-export const FACADE_MATERIAL_LABELS: Record<FacadeMaterial, string> = {
+export const FACADE_MATERIAL_LABELS: Record<string, string> = {
   chipboard: 'ЛДСП',
   pvc_film: 'Плёнка ПВХ',
   plastic_hpl: 'Пластик (HPL/Fenix)',
@@ -69,23 +56,44 @@ export const FACADE_MATERIAL_LABELS: Record<FacadeMaterial, string> = {
   veneer_solid: 'Шпон / Массив',
 }
 
-export const FACADE_TYPE_LABELS: Record<FacadeType, string> = {
+export const FACADE_TYPE_LABELS: Record<string, string> = {
   smooth: 'Гладкие',
   milled: 'Фрезерованные (классика/интегрированная ручка)',
   glass_showcase: 'Витрины (стекло в профиле)',
 }
 
-export const COUNTERTOP_LABELS: Record<CountertopType, string> = {
+export const COUNTERTOP_LABELS: Record<string, string> = {
   chipboard_plastic: 'ЛДСП пластик',
   compact_plate: 'Компакт-плита',
   acrylic_stone: 'Искусственный камень (акрил)',
   quartz_agglomerate: 'Кварцевый агломерат',
 }
 
-export const OPENING_SYSTEM_LABELS: Record<OpeningSystem, string> = {
+export const OPENING_SYSTEM_LABELS: Record<string, string> = {
   handles: 'Накладные ручки',
   gola_profile: 'Профиль Gola (без ручек)',
   push_to_open: 'Нажатие (Tip-on / Push-to-open)',
+}
+
+// Небольшой список часто встречающихся цветов — не исчерпывающий справочник, у полей есть
+// опция «своё» (SelectWithCustom) для остального.
+export const FACADE_COLOR_LABELS: Record<string, string> = {
+  white: 'Белый',
+  oak_sonoma: 'Дуб сонома',
+  oak_craft: 'Дуб крафт',
+  wenge: 'Венге',
+  walnut: 'Орех',
+  grey_matte: 'Серый матовый',
+  black_matte: 'Чёрный матовый',
+  beige: 'Бежевый',
+}
+
+export const COUNTERTOP_COLOR_LABELS: Record<string, string> = {
+  white: 'Белый',
+  grey: 'Серый',
+  black: 'Чёрный',
+  wood: 'Под дерево (дуб)',
+  marble_beige: 'Бежевый мрамор',
 }
 
 export const SPECIAL_MECHANISM_LABELS: Record<SpecialMechanism, string> = {
@@ -120,12 +128,13 @@ export const REVISION_FIELD_LABELS: Record<string, string> = {
   facadeMaterial: 'Материал фасадов',
   facadeType: 'Тип фасадов',
   countertopType: 'Столешница',
-  finish: 'Цвет / отделка',
+  facadeColor: 'Цвет фасада',
+  countertopColor: 'Цвет столешницы',
   qualityTier: 'Ценовой сегмент',
   hardwareTier: 'Класс фурнитуры',
   openingSystem: 'Система открывания',
   drawerCount: 'Кол-во ящиков',
-  heightCm: 'Высота',
-  depthCm: 'Глубина',
-  lengthCm: 'Длина',
+  heightMm: 'Высота',
+  depthMm: 'Глубина',
+  lengthMm: 'Длина',
 }

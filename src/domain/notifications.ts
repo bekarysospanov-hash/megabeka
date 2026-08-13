@@ -105,6 +105,50 @@ export function buildRevisionRequestedNotification(dealId: string, field: string
   ]
 }
 
+// rejectAct возвращает сделку в in_production, не создавая новый статус — без отдельного
+// билдера мебельщик увидел бы тот же общий текст "оплата получена, изделие в производстве",
+// как будто ничего не произошло, и не узнал бы, что акт отклонён и почему.
+export function buildActRejectedNotification(dealId: string, reason: string | null): NotificationEvent[] {
+  const at = new Date().toISOString()
+  const base = { dealId, status: 'in_production' as const, at, read: false }
+  const suffix = reason ? `: «${reason}»` : ''
+  return [
+    {
+      ...base,
+      id: generateId(),
+      recipientRole: 'furniture_maker',
+      text: `Клиент отклонил приёмку${suffix}`,
+    },
+    {
+      ...base,
+      id: generateId(),
+      recipientRole: 'operator',
+      text: `Клиент отклонил акт приёма-передачи${suffix}`,
+    },
+  ]
+}
+
+// payInterim не меняет статус сделки (остаётся in_production) — без отдельного билдера
+// событие вообще не попало бы в центр уведомлений.
+export function buildInterimPaidNotification(dealId: string): NotificationEvent[] {
+  const at = new Date().toISOString()
+  const base = { dealId, status: 'in_production' as const, at, read: false }
+  return [
+    {
+      ...base,
+      id: generateId(),
+      recipientRole: 'furniture_maker',
+      text: 'Клиент внёс промежуточный платёж',
+    },
+    {
+      ...base,
+      id: generateId(),
+      recipientRole: 'operator',
+      text: 'Клиент внёс промежуточный платёж по сделке',
+    },
+  ]
+}
+
 export function buildRevisionsRequestedNotification(dealId: string, fields: string[]): NotificationEvent[] {
   const labels = fields.map((f) => REVISION_FIELD_LABELS[f] ?? f).join(', ')
   const at = new Date().toISOString()

@@ -9,6 +9,8 @@ import {
   markProductionDone,
   onboardClient,
   pay,
+  payInterim,
+  rejectAct,
   requestRevision,
   requestRevisions,
   resolveDispute,
@@ -31,6 +33,13 @@ const baseInput: CreateDealInput = {
   prepaymentPercent: 50,
   finalPercent: 50,
   commissionPercent: 10,
+}
+
+const INTERIM_INPUT: CreateDealInput = {
+  ...baseInput,
+  prepaymentPercent: 30,
+  interimPercent: 20,
+  finalPercent: 50,
 }
 
 function toAwaitingClient(): Deal {
@@ -65,6 +74,14 @@ function toActSigning(): Deal {
   return signActByFurnitureMaker(toAwaitingAcceptance(), '7777')
 }
 
+function toInProductionFrom(input: CreateDealInput): Deal {
+  let deal = onboardClient(sendToClient(createDeal(input)), 'Данияр Ахметов', '+77001234567')
+  deal = signByFurnitureMaker(clientAccepts(deal), '5555')
+  deal = signByClientSms(deal, '0000')
+  deal = submitPayment(deal, 'card')
+  return pay(deal).deal
+}
+
 describe('createDeal', () => {
   it('создаёт сделку в статусе draft с уникальной ссылкой', () => {
     const deal = createDeal(baseInput)
@@ -80,9 +97,6 @@ describe('createDeal', () => {
     expect(deal.specialMechanisms).toEqual([])
     expect(deal.appliances).toEqual([])
     expect(deal.lightingNeeded).toBe(false)
-    expect(deal.clientBudget).toBeNull()
-    expect(deal.desiredTimeline).toBeNull()
-    expect(deal.referenceLink).toBeNull()
   })
 
   it('выдаёт гарантию сразу при создании — guaranteeIssuedAt проставлен валидной датой не в будущем', () => {
@@ -108,11 +122,11 @@ describe('updateDealSpec', () => {
       category: 'upholstered',
       hasUpholstery: true,
       widthCm: 200,
-      heightCm: 90,
-      depthCm: 100,
-      lengthCm: null,
+      heightMm: 900,
+      depthMm: 1000,
+      lengthMm: null,
       material: 'mdf',
-      finish: 'серый велюр',
+      facadeColor: 'серый велюр',
       qualityTier: 'premium',
       hardwareTier: 'mid',
       estimatedProductionDays: 21,
@@ -123,7 +137,7 @@ describe('updateDealSpec', () => {
     expect(deal.category).toBe('upholstered')
     expect(deal.hasUpholstery).toBe(true)
     expect(deal.widthCm).toBe(200)
-    expect(deal.finish).toBe('серый велюр')
+    expect(deal.facadeColor).toBe('серый велюр')
     expect(deal.estimatedProductionDays).toBe(21)
     expect(deal.status).toBe('draft')
   })
@@ -205,7 +219,7 @@ describe('requestRevisions', () => {
       deal,
       [
         { field: 'material', oldValue: 'ЛДСП Стандарт', newValue: 'МДФ' },
-        { field: 'heightCm', oldValue: '—', newValue: '250' },
+        { field: 'heightMm', oldValue: '—', newValue: '2500' },
       ],
       'нужен апгрейд',
     )
@@ -218,7 +232,7 @@ describe('requestRevisions', () => {
     expect(revisions[0].requestId).toBeTruthy()
     expect(revisions.every((r) => r.comment === 'нужен апгрейд')).toBe(true)
     expect(revisions[0].field).toBe('material')
-    expect(revisions[1].field).toBe('heightCm')
+    expect(revisions[1].field).toBe('heightMm')
   })
 
   it('сбрасывает clientAccepted, как и одиночный requestRevision', () => {
@@ -377,9 +391,12 @@ describe('retryPayment', () => {
 })
 
 describe('cancelDeal', () => {
-  it('недоступен до отправки клиенту и после начала обработки платежа', () => {
-    expect(() => cancelDeal(createDeal(baseInput), 'furniture_maker', '')).toThrow()
-    expect(() => cancelDeal(toAwaitingClient(), 'client', '')).toThrow()
+  it('доступен на draft и awaiting_client — закрытие сделки до подписания', () => {
+    expect(cancelDeal(createDeal(baseInput), 'furniture_maker', '').status).toBe('cancelled')
+    expect(cancelDeal(toAwaitingClient(), 'furniture_maker', '').status).toBe('cancelled')
+  })
+
+  it('недоступен после начала обработки платежа', () => {
     expect(() => cancelDeal(toPaymentProcessing(), 'client', '')).toThrow()
     expect(() => cancelDeal(toInProduction(), 'furniture_maker', '')).toThrow()
   })
@@ -400,6 +417,51 @@ describe('cancelDeal', () => {
   it('пустая причина сохраняется как null, а не пустая строка', () => {
     const deal = cancelDeal(toNegotiation(), 'client', '   ')
     expect(deal.cancellationReason).toBeNull()
+  })
+})
+
+describe('rejectAct', () => {
+  it('недоступен вне act_signing', () => {
+    expect(() => rejectAct(toAwaitingAcceptance(), 'скол на дверце')).toThrow()
+  })
+
+  it('переводит act_signing обратно в in_production и сохраняет причину отказа', () => {
+    const deal = rejectAct(toActSigning(), 'скол на дверце, нужна переделка')
+    expect(deal.status).toBe('in_production')
+    expect(deal.actRejectionReason).toBe('скол на дверце, нужна переделка')
+    expect(deal.statusHistory[deal.statusHistory.length - 1].status).toBe('in_production')
+  })
+
+  it('пустая причина сохраняется как null, а не пустая строка', () => {
+    const deal = rejectAct(toActSigning(), '   ')
+    expect(deal.actRejectionReason).toBeNull()
+  })
+})
+
+describe('payInterim', () => {
+  it('недоступен вне in_production', () => {
+    expect(() => payInterim(toPaymentPending())).toThrow()
+  })
+
+  it('недоступен, если у сделки нет промежуточного платежа (interimPercent = 0)', () => {
+    expect(() => payInterim(toInProduction())).toThrow()
+  })
+
+  it('создаёт транш interim за вычетом комиссии и помечает interimPaidAt', () => {
+    const before = Date.now()
+    const deal = toInProductionFrom(INTERIM_INPUT)
+    const { deal: updated, transaction } = payInterim(deal)
+    expect(transaction.type).toBe('interim')
+    expect(transaction.amount).toBe(180_000)
+    expect(updated.status).toBe('in_production')
+    expect(updated.interimPaidAt).toBeTruthy()
+    expect(new Date(updated.interimPaidAt!).getTime()).toBeGreaterThanOrEqual(before)
+  })
+
+  it('недоступен повторно после того, как промежуточный платёж уже внесён', () => {
+    const deal = toInProductionFrom(INTERIM_INPUT)
+    const { deal: updated } = payInterim(deal)
+    expect(() => payInterim(updated)).toThrow()
   })
 })
 

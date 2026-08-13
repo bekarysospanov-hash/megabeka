@@ -27,8 +27,13 @@ export const ESCALATABLE_STATUSES: DealStatus[] = [
 
 // До payment_processing деньги ещё не двигались — лёгкая отмена закрывает сделку сразу,
 // без формального спора/эскалации оператору. После — только через callOperator/initiateRefund,
-// потому что там уже есть деньги, которые нужно по-настоящему возвращать.
+// потому что там уже есть деньги, которые нужно по-настоящему возвращать. draft/awaiting_client
+// включены отдельно от остальных: там ещё не было ни подписания, ни явного согласия клиента —
+// закрытие сделки на этом этапе называется в UI иначе ("Закрыть без подписания"), но это тот
+// же самый переход в cancelled, тот же cancelDeal.
 export const CANCELLABLE_STATUSES: DealStatus[] = [
+  'draft',
+  'awaiting_client',
   'negotiation',
   'contract_signing',
   'contract_signed',
@@ -74,19 +79,22 @@ function specFields(input: DealSpecInput) {
     title: input.title,
     amount: input.amount,
     prepaymentPercent: input.prepaymentPercent,
+    interimPercent: input.interimPercent ?? 0,
     finalPercent: input.finalPercent,
     commissionPercent: input.commissionPercent,
     contactName: input.contactName ?? null,
     contactPhone: input.contactPhone ?? null,
     category: input.category ?? null,
+    categoryCustom: input.categoryCustom ?? null,
     hasUpholstery: input.hasUpholstery ?? false,
     configuration: input.configuration ?? null,
     widthCm: input.widthCm ?? null,
-    heightCm: input.heightCm ?? null,
-    depthCm: input.depthCm ?? null,
-    lengthCm: input.lengthCm ?? null,
+    heightMm: input.heightMm ?? null,
+    depthMm: input.depthMm ?? null,
+    lengthMm: input.lengthMm ?? null,
     material: input.material ?? null,
-    finish: input.finish ?? null,
+    facadeColor: input.facadeColor ?? null,
+    countertopColor: input.countertopColor ?? null,
     qualityTier: input.qualityTier ?? null,
     hardwareTier: input.hardwareTier ?? null,
     facadeMaterial: input.facadeMaterial ?? null,
@@ -98,9 +106,6 @@ function specFields(input: DealSpecInput) {
     applianceMount: input.applianceMount ?? null,
     appliances: input.appliances ?? [],
     lightingNeeded: input.lightingNeeded ?? false,
-    clientBudget: input.clientBudget ?? null,
-    desiredTimeline: input.desiredTimeline ?? null,
-    referenceLink: input.referenceLink ?? null,
     estimatedProductionDays: input.estimatedProductionDays ?? null,
   }
 }
@@ -110,19 +115,22 @@ export function dealToSpecInput(deal: Deal): DealSpecInput {
     title: deal.title,
     amount: deal.amount,
     prepaymentPercent: deal.prepaymentPercent,
+    interimPercent: deal.interimPercent,
     finalPercent: deal.finalPercent,
     commissionPercent: deal.commissionPercent,
     contactName: deal.contactName,
     contactPhone: deal.contactPhone,
     category: deal.category,
+    categoryCustom: deal.categoryCustom,
     hasUpholstery: deal.hasUpholstery,
     configuration: deal.configuration,
     widthCm: deal.widthCm,
-    heightCm: deal.heightCm,
-    depthCm: deal.depthCm,
-    lengthCm: deal.lengthCm,
+    heightMm: deal.heightMm,
+    depthMm: deal.depthMm,
+    lengthMm: deal.lengthMm,
     material: deal.material,
-    finish: deal.finish,
+    facadeColor: deal.facadeColor,
+    countertopColor: deal.countertopColor,
     qualityTier: deal.qualityTier,
     hardwareTier: deal.hardwareTier,
     facadeMaterial: deal.facadeMaterial,
@@ -134,9 +142,6 @@ export function dealToSpecInput(deal: Deal): DealSpecInput {
     applianceMount: deal.applianceMount,
     appliances: deal.appliances,
     lightingNeeded: deal.lightingNeeded,
-    clientBudget: deal.clientBudget,
-    desiredTimeline: deal.desiredTimeline,
-    referenceLink: deal.referenceLink,
     estimatedProductionDays: deal.estimatedProductionDays,
   }
 }
@@ -159,6 +164,8 @@ export function createDeal(input: CreateDealInput): Deal {
     guaranteeIssuedAt: new Date().toISOString(),
     acceptedWithRemarks: false,
     acceptanceRemarks: null,
+    actRejectionReason: null,
+    interimPaidAt: null,
     cancellationReason: null,
     cancelledBy: null,
   }
@@ -306,6 +313,35 @@ export function signAct(
     'completed',
   )
   return { deal: completed, transaction }
+}
+
+// Клиент отклоняет акт вместо подписания — не спор и не отмена: изделие возвращается
+// мебельщику на доработку, деньги уже внесённые (предоплата/промежуточный транш) не трогаются.
+export function rejectAct(deal: Deal, reason: string): Deal {
+  assertStatus(deal, 'act_signing')
+  return withStatus({ ...deal, actRejectionReason: reason.trim() || null }, 'in_production')
+}
+
+// Промежуточный транш при трёхчастном сплите (interimPercent > 0) — доступен в любой момент
+// производства, не блокирует и не меняет статус сделки (в отличие от pay()/signAct()), поэтому
+// защищён отдельным флагом interimPaidAt, а не переходом по графу статусов.
+export function payInterim(deal: Deal): { deal: Deal; transaction: Transaction } {
+  assertStatus(deal, 'in_production')
+  if (deal.interimPercent <= 0) {
+    throw new Error('У сделки нет промежуточного платежа')
+  }
+  if (deal.interimPaidAt != null) {
+    throw new Error('Промежуточный платёж уже внесён')
+  }
+  const paidAt = new Date().toISOString()
+  const transaction: Transaction = {
+    dealId: deal.id,
+    type: 'interim',
+    amount: netAmount(deal, deal.interimPercent),
+    status: 'paid',
+    paidAt,
+  }
+  return { deal: { ...deal, interimPaidAt: paidAt }, transaction }
 }
 
 export function callOperator(

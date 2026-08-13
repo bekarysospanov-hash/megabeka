@@ -3,7 +3,9 @@ import {
   APPLIANCE_MOUNT_LABELS,
   CATEGORY_LABELS,
   CONFIGURATION_LABELS,
+  COUNTERTOP_COLOR_LABELS,
   COUNTERTOP_LABELS,
+  FACADE_COLOR_LABELS,
   FACADE_MATERIAL_LABELS,
   FACADE_TYPE_LABELS,
   HARDWARE_LABELS,
@@ -17,21 +19,33 @@ import type { Deal } from './types'
 
 export function generateContractText(deal: Deal): string {
   const clientName = deal.clientName || deal.contactName || '__________________'
-  const category = deal.category ? CATEGORY_LABELS[deal.category] : 'не указан'
-  const configuration = deal.configuration ? CONFIGURATION_LABELS[deal.configuration] : 'не указана'
+  const category =
+    deal.category === 'other' && deal.categoryCustom
+      ? deal.categoryCustom
+      : deal.category
+        ? CATEGORY_LABELS[deal.category]
+        : 'не указан'
+  const configuration = deal.configuration ? CONFIGURATION_LABELS[deal.configuration] ?? deal.configuration : 'не указана'
   const dimensions =
-    deal.heightCm != null || deal.depthCm != null
-      ? `высота ${deal.heightCm ?? '—'} см, глубина ${deal.depthCm ?? '—'} см`
+    deal.heightMm != null || deal.depthMm != null
+      ? `высота ${deal.heightMm ?? '—'} мм, глубина ${deal.depthMm ?? '—'} мм`
       : 'уточняются при замере на объекте'
-  const length = deal.lengthCm != null ? `, длина (по стенам) — ${deal.lengthCm} см` : ''
-  const material = deal.material ? MATERIAL_LABELS[deal.material] : 'уточняется'
-  const facadeMaterial = deal.facadeMaterial ? FACADE_MATERIAL_LABELS[deal.facadeMaterial] : 'уточняется'
-  const facadeType = deal.facadeType ? FACADE_TYPE_LABELS[deal.facadeType] : 'уточняется'
-  const countertop = deal.countertopType ? COUNTERTOP_LABELS[deal.countertopType] : null
-  const finish = deal.finish || 'уточняется'
+  const length = deal.lengthMm != null ? `, длина (по стенам) — ${deal.lengthMm} мм` : ''
+  const material = deal.material ? MATERIAL_LABELS[deal.material] ?? deal.material : 'уточняется'
+  const facadeMaterial = deal.facadeMaterial
+    ? FACADE_MATERIAL_LABELS[deal.facadeMaterial] ?? deal.facadeMaterial
+    : 'уточняется'
+  const facadeType = deal.facadeType ? FACADE_TYPE_LABELS[deal.facadeType] ?? deal.facadeType : 'уточняется'
+  const countertop = deal.countertopType ? COUNTERTOP_LABELS[deal.countertopType] ?? deal.countertopType : null
+  const facadeColor = deal.facadeColor ? FACADE_COLOR_LABELS[deal.facadeColor] ?? deal.facadeColor : 'уточняется'
+  const countertopColor = deal.countertopColor
+    ? COUNTERTOP_COLOR_LABELS[deal.countertopColor] ?? deal.countertopColor
+    : null
   const quality = deal.qualityTier ? QUALITY_LABELS[deal.qualityTier] : 'уточняется'
-  const hardware = deal.hardwareTier ? HARDWARE_LABELS[deal.hardwareTier] : 'уточняется'
-  const openingSystem = deal.openingSystem ? OPENING_SYSTEM_LABELS[deal.openingSystem] : 'уточняется'
+  const hardware = deal.hardwareTier ? HARDWARE_LABELS[deal.hardwareTier] ?? deal.hardwareTier : 'уточняется'
+  const openingSystem = deal.openingSystem
+    ? OPENING_SYSTEM_LABELS[deal.openingSystem] ?? deal.openingSystem
+    : 'уточняется'
   const drawerCount = deal.drawerCount != null ? `${deal.drawerCount} шт.` : null
   const specialMechanisms =
     deal.specialMechanisms.length > 0
@@ -65,14 +79,14 @@ export function generateContractText(deal: Deal): string {
 1.1. Исполнитель обязуется изготовить и передать Заказчику мебель согласно согласованной спецификации (далее — «Изделие»), а Заказчик обязуется принять и оплатить Изделие на условиях настоящего Договора.
 1.2. Наименование заказа: «${deal.title}».
 1.3. Тип мебели: ${category}, конфигурация — ${configuration}.
-1.4. Характеристики Изделия: размеры — ${dimensions}${length}; материал корпуса — ${material}; материал фасадов — ${facadeMaterial}; тип фасадов — ${facadeType}${countertop ? `; столешница — ${countertop}` : ''}; отделка — ${finish}; класс фурнитуры — ${hardware}; система открывания — ${openingSystem}; уровень исполнения — ${quality}.
+1.4. Характеристики Изделия: размеры — ${dimensions}${length}; материал корпуса — ${material}; материал фасадов — ${facadeMaterial}; тип фасадов — ${facadeType}; цвет фасада — ${facadeColor}${countertop ? `; столешница — ${countertop}` : ''}${countertopColor ? `; цвет столешницы — ${countertopColor}` : ''}; класс фурнитуры — ${hardware}; система открывания — ${openingSystem}; уровень исполнения — ${quality}.
 1.5. Дополнительно: ${extrasText}.
 1.6. Указанные характеристики являются предварительными и могут быть уточнены Сторонами после проведения замера на объекте Заказчика.
 
 2. ЦЕНА ДОГОВОРА И ПОРЯДОК РАСЧЁТОВ
 2.1. Стоимость Изделия составляет ${formatMoney(deal.amount)} и является предварительной оценкой до проведения замера.
 2.2. Заказчик оплачивает 100% стоимости на счёт платформы Asia Mebel в рамках сервиса «Безопасная сделка».
-2.3. Оплата Заказчика поступает на счёт платформы двумя траншами и становится доступна Исполнителю на балансе платформы для запроса перевода: предоплата в размере ${deal.prepaymentPercent}% — сразу после оплаты Заказчиком; окончательный платёж в размере ${deal.finalPercent}% — после подписания Сторонами акта приёма-передачи.
+2.3. Оплата Заказчика поступает на счёт платформы ${deal.interimPercent > 0 ? 'тремя траншами' : 'двумя траншами'} и становится доступна Исполнителю на балансе платформы для запроса перевода: ${deal.interimPercent > 0 ? 'аванс' : 'предоплата'} в размере ${deal.prepaymentPercent}% — сразу после оплаты Заказчиком${deal.interimPercent > 0 ? `; промежуточный платёж в размере ${deal.interimPercent}% — в период изготовления Изделия` : ''}; окончательный платёж в размере ${deal.finalPercent}% — после подписания Сторонами акта приёма-передачи.
 2.4. Платформа Asia Mebel выступает гарантом сделки по сервису «Безопасная сделка»: гарантирует Заказчику возврат оплаченной суммы, если сделка не будет исполнена, а Исполнителю — доступ к оплаченным траншам на балансе платформы при выполнении условий Договора.
 
 3. СРОКИ

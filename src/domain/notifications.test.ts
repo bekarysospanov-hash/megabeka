@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildActRejectedNotification,
   buildClientAcceptedNotification,
+  buildInterimPaidNotification,
   buildNotificationEvents,
   buildPaymentRetryNotification,
   buildRevisionRequestedNotification,
@@ -77,13 +79,47 @@ describe('buildRevisionRequestedNotification', () => {
   })
 })
 
+describe('buildActRejectedNotification', () => {
+  it('адресовано мебельщику и оператору, у обоих текст отличается от общего текста статуса in_production', () => {
+    const events = buildActRejectedNotification('deal-1', 'скол на дверце')
+    expect(events.map((e) => e.recipientRole).sort()).toEqual(['furniture_maker', 'operator'])
+    for (const event of events) {
+      expect(event.dealId).toBe('deal-1')
+      expect(event.status).toBe('in_production')
+      expect(event.read).toBe(false)
+      expect(event.text).toContain('скол на дверце')
+      expect(event.text).not.toBe(stepGuidance.in_production?.[event.recipientRole]?.title)
+    }
+  })
+
+  it('без причины не падает и не оставляет пустых кавычек в тексте', () => {
+    const events = buildActRejectedNotification('deal-1', null)
+    for (const event of events) {
+      expect(event.text).not.toContain('«')
+    }
+  })
+})
+
+describe('buildInterimPaidNotification', () => {
+  it('адресовано мебельщику и оператору, у обоих текст отличается от общего текста статуса in_production', () => {
+    const events = buildInterimPaidNotification('deal-1')
+    expect(events.map((e) => e.recipientRole).sort()).toEqual(['furniture_maker', 'operator'])
+    for (const event of events) {
+      expect(event.dealId).toBe('deal-1')
+      expect(event.status).toBe('in_production')
+      expect(event.read).toBe(false)
+      expect(event.text).not.toBe(stepGuidance.in_production?.[event.recipientRole]?.title)
+    }
+  })
+})
+
 describe('buildRevisionsRequestedNotification', () => {
   it('одно уведомление на обоих получателей перечисляет все изменённые поля', () => {
-    const events = buildRevisionsRequestedNotification('deal-1', ['amount', 'heightCm'])
+    const events = buildRevisionsRequestedNotification('deal-1', ['amount', 'heightMm'])
     expect(events.map((e) => e.recipientRole).sort()).toEqual(['furniture_maker', 'operator'])
     for (const event of events) {
       expect(event.text).toContain(REVISION_FIELD_LABELS.amount)
-      expect(event.text).toContain(REVISION_FIELD_LABELS.heightCm)
+      expect(event.text).toContain(REVISION_FIELD_LABELS.heightMm)
     }
   })
 })

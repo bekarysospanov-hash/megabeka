@@ -17,6 +17,8 @@ import {
   markProductionDone as markProductionDoneFn,
   onboardClient as onboardClientFn,
   pay as payFn,
+  payInterim as payInterimFn,
+  rejectAct as rejectActFn,
   requestRevision as requestRevisionFn,
   requestRevisions as requestRevisionsFn,
   resolveDispute as resolveDisputeFn,
@@ -31,8 +33,10 @@ import {
 } from '../domain/dealMachine'
 import { generateId } from '../domain/id'
 import {
+  buildActRejectedNotification,
   buildClientAcceptedNotification,
   buildDealUpdatedNotification,
+  buildInterimPaidNotification,
   buildNotificationEvents,
   buildPaymentRetryNotification,
   buildRevisionRequestedNotification,
@@ -178,6 +182,8 @@ type Action =
   | { type: 'markProductionDone'; dealId: string }
   | { type: 'signActByFurnitureMaker'; dealId: string; code: string }
   | { type: 'signAct'; dealId: string; code: string; remarks?: string | null }
+  | { type: 'rejectAct'; dealId: string; reason: string }
+  | { type: 'payInterim'; dealId: string }
   | { type: 'callOperator'; dealId: string; openedBy: Actor; reason: string }
   | { type: 'freezeDispute'; dealId: string }
   | { type: 'initiateRefund'; dealId: string }
@@ -347,6 +353,25 @@ function reducer(state: DemoState, action: Action): DemoState {
         deals: { ...state.deals, [deal.id]: deal },
         transactions: [...state.transactions, transaction],
         notifications: notifyForTransition(state, before, deal),
+      }
+    }
+    case 'rejectAct': {
+      const before = state.deals[action.dealId]
+      const deal = rejectActFn(before, action.reason)
+      return {
+        ...state,
+        deals: { ...state.deals, [deal.id]: deal },
+        notifications: [...state.notifications, ...buildActRejectedNotification(deal.id, deal.actRejectionReason)],
+      }
+    }
+    case 'payInterim': {
+      const before = state.deals[action.dealId]
+      const { deal, transaction } = payInterimFn(before)
+      return {
+        ...state,
+        deals: { ...state.deals, [deal.id]: deal },
+        transactions: [...state.transactions, transaction],
+        notifications: [...state.notifications, ...buildInterimPaidNotification(deal.id)],
       }
     }
     case 'callOperator': {
@@ -621,6 +646,11 @@ export function useDemoActions() {
         dispatch({ type: 'signAct', dealId, code, remarks }),
       [dispatch],
     ),
+    rejectAct: useCallback(
+      (dealId: string, reason: string) => dispatch({ type: 'rejectAct', dealId, reason }),
+      [dispatch],
+    ),
+    payInterim: useCallback((dealId: string) => dispatch({ type: 'payInterim', dealId }), [dispatch]),
     callOperator: useCallback(
       (dealId: string, openedBy: Actor, reason: string) =>
         dispatch({ type: 'callOperator', dealId, openedBy, reason }),

@@ -13,6 +13,7 @@ function MilestoneDot({ done }: { done: boolean }) {
 
 export function PayoutTimeline({ deal, transactions }: { deal: Deal; transactions: Transaction[] }) {
   const prepayment = transactions.find((t) => t.type === 'prepayment')
+  const interim = transactions.find((t) => t.type === 'interim')
   const final = transactions.find((t) => t.type === 'final')
 
   return (
@@ -20,7 +21,9 @@ export function PayoutTimeline({ deal, transactions }: { deal: Deal; transaction
       <div className="flex items-start gap-3 rounded-md border p-3 text-sm">
         <MilestoneDot done={Boolean(prepayment)} />
         <div>
-          <div className="font-medium">Предоплата ({deal.prepaymentPercent}%)</div>
+          <div className="font-medium">
+            {deal.interimPercent > 0 ? 'Аванс' : 'Предоплата'} ({deal.prepaymentPercent}%)
+          </div>
           <div className="text-muted-foreground">
             {prepayment
               ? `${formatMoney(prepayment.amount)} · ${formatDateTime(prepayment.paidAt)}`
@@ -28,6 +31,20 @@ export function PayoutTimeline({ deal, transactions }: { deal: Deal; transaction
           </div>
         </div>
       </div>
+
+      {deal.interimPercent > 0 && (
+        <div className="flex items-start gap-3 rounded-md border p-3 text-sm">
+          <MilestoneDot done={Boolean(interim)} />
+          <div>
+            <div className="font-medium">Промежуточный платёж ({deal.interimPercent}%)</div>
+            <div className="text-muted-foreground">
+              {interim
+                ? `${formatMoney(interim.amount)} · ${formatDateTime(interim.paidAt)}`
+                : 'Клиент вносит в любой момент во время производства'}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex items-start gap-3 rounded-md border p-3 text-sm">
         <MilestoneDot done={Boolean(prepayment)} />

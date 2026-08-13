@@ -5,7 +5,6 @@ import { StatusBadge } from '../components/StatusBadge'
 import { RevisionDiffList } from '../components/RevisionDiffList'
 import { DisputePanel } from '../components/DisputePanel'
 import { DemoModeBanner } from '../components/DemoModeBanner'
-import { OrderSpecSummary } from '../components/OrderSpecSummary'
 import { PreliminaryEstimateBanner } from '../components/PreliminaryEstimateBanner'
 import { AttachmentGallery } from '../components/AttachmentGallery'
 import { SignDocumentDialog } from '../components/SignDocumentDialog'
@@ -13,7 +12,7 @@ import { PaymentMethodPicker, PaymentProcessing } from '../components/PaymentFlo
 import { GuaranteeBanner } from '../components/GuaranteeBanner'
 import { StepGuidanceCard } from '../components/StepGuidanceCard'
 import { DealProgressBar } from '../components/DealProgressBar'
-import { KeyTermsSummary } from '../components/KeyTermsSummary'
+import { OfferAgreementNote } from '../components/OfferAgreementNote'
 import { ProductionTimer } from '../components/ProductionTimer'
 import { RevisionRequestForm } from '../components/RevisionRequestForm'
 import { CancelDealDialog } from '../components/CancelDealDialog'
@@ -21,13 +20,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { CANCELLABLE_STATUSES, ESCALATABLE_STATUSES } from '../domain/dealMachine'
 import { generateActText, generateContractText } from '../domain/contractTemplate'
 import { formatMoney } from '../domain/statusLabels'
 import type { Deal } from '../domain/types'
-
-const ESCALATABLE = new Set(ESCALATABLE_STATUSES)
-const CANCELLABLE = new Set(CANCELLABLE_STATUSES)
 
 export function ClientDealEntry() {
   const { id } = useParams<{ id: string }>()
@@ -74,6 +69,7 @@ function ClientOnboarding({ deal }: { deal: Deal }) {
             Указать другие данные
           </Button>
         </div>
+        <OfferAgreementNote />
       </div>
     )
   }
@@ -108,6 +104,7 @@ function ClientOnboarding({ deal }: { deal: Deal }) {
       >
         Продолжить
       </Button>
+      <OfferAgreementNote />
     </div>
   )
 }
@@ -123,12 +120,12 @@ function ClientDealScreen({ dealId }: { dealId: string }) {
     pay,
     retryPayment,
     signAct,
-    callOperator,
+    rejectAct,
+    payInterim,
     addAttachment,
   } = useDemoActions()
 
   const [showRevisionForm, setShowRevisionForm] = useState(false)
-  const [operatorReason, setOperatorReason] = useState('')
   const [acceptanceRemarks, setAcceptanceRemarks] = useState('')
 
   return (
@@ -146,10 +143,6 @@ function ClientDealScreen({ dealId }: { dealId: string }) {
       <StepGuidanceCard status={deal.status} actor="client" />
 
       {deal.status === 'negotiation' && <PreliminaryEstimateBanner />}
-
-      {deal.status === 'negotiation' && !deal.clientAccepted && <KeyTermsSummary deal={deal} />}
-
-      <OrderSpecSummary deal={deal} hideContact />
 
       {deal.status === 'negotiation' && !deal.clientAccepted && (
         <div className="grid gap-4">
@@ -174,6 +167,7 @@ function ClientDealScreen({ dealId }: { dealId: string }) {
             <Button variant="outline" onClick={() => setShowRevisionForm((v) => !v)}>
               Запросить правки
             </Button>
+            <CancelDealDialog dealId={deal.id} actor="client" triggerLabel="Отменить сделку" />
           </div>
           {showRevisionForm && (
             <RevisionRequestForm
@@ -189,7 +183,12 @@ function ClientDealScreen({ dealId }: { dealId: string }) {
       )}
 
       {deal.status === 'negotiation' && deal.clientAccepted && (
-        <p className="text-sm text-muted-foreground">Вы приняли условия, ждём подпись мебельщика.</p>
+        <div className="grid gap-3">
+          <p className="text-sm text-muted-foreground">Вы приняли условия, ждём подпись мебельщика.</p>
+          <div className="flex flex-wrap gap-2">
+            <CancelDealDialog dealId={deal.id} actor="client" triggerLabel="Отменить сделку" />
+          </div>
+        </div>
       )}
 
       {deal.status === 'contract_signing' && (
@@ -197,12 +196,15 @@ function ClientDealScreen({ dealId }: { dealId: string }) {
           <p className="text-sm text-muted-foreground">
             Мебельщик подписал договор. Посмотрите условия и подпишите со своей стороны.
           </p>
-          <SignDocumentDialog
-            documentTitle={`Договор подряда № ${deal.slug}`}
-            documentText={generateContractText(deal)}
-            triggerLabel="Посмотреть и подписать договор"
-            onSign={(code) => signByClientSms(deal.id, code)}
-          />
+          <div className="flex flex-wrap gap-2">
+            <SignDocumentDialog
+              documentTitle={`Договор подряда № ${deal.slug}`}
+              documentText={generateContractText(deal)}
+              triggerLabel="Посмотреть и подписать договор"
+              onSign={(code) => signByClientSms(deal.id, code)}
+            />
+            <CancelDealDialog dealId={deal.id} actor="client" triggerLabel="Отменить сделку" />
+          </div>
         </div>
       )}
 
@@ -211,6 +213,9 @@ function ClientDealScreen({ dealId }: { dealId: string }) {
           <GuaranteeBanner perspective="client" />
           <DemoModeBanner>Оплата имитируется, реальный платёж не проводится.</DemoModeBanner>
           <PaymentMethodPicker amount={deal.amount} onSubmit={(method) => submitPayment(deal.id, method)} />
+          <div className="flex flex-wrap gap-2">
+            <CancelDealDialog dealId={deal.id} actor="client" triggerLabel="Отменить сделку" />
+          </div>
         </div>
       )}
 
@@ -226,6 +231,18 @@ function ClientDealScreen({ dealId }: { dealId: string }) {
         <div className="grid gap-3">
           <p className="text-sm text-muted-foreground">Оплата получена, мебельщик готовит заказ.</p>
           {deal.status === 'in_production' && <ProductionTimer deal={deal} />}
+          {deal.status === 'in_production' && deal.interimPercent > 0 && !deal.interimPaidAt && (
+            <div className="grid gap-2 rounded-lg border p-4">
+              <p className="text-sm">
+                Промежуточный платёж ({deal.interimPercent}%): {formatMoney((deal.amount * deal.interimPercent) / 100)}
+              </p>
+              <DemoModeBanner>Оплата имитируется, реальный платёж не проводится.</DemoModeBanner>
+              <PaymentMethodPicker
+                amount={(deal.amount * deal.interimPercent) / 100}
+                onSubmit={() => payInterim(deal.id)}
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -247,12 +264,26 @@ function ClientDealScreen({ dealId }: { dealId: string }) {
               placeholder="Например: скол на дверце — необязательно, если недочётов нет"
             />
           </div>
-          <SignDocumentDialog
-            documentTitle={`Акт приёма-передачи к договору № ${deal.slug}`}
-            documentText={generateActText(deal)}
-            triggerLabel="Посмотреть и подписать акт"
-            onSign={(code) => signAct(deal.id, code, acceptanceRemarks.trim() || null)}
-          />
+          <div className="flex flex-wrap gap-2">
+            <SignDocumentDialog
+              documentTitle={`Акт приёма-передачи к договору № ${deal.slug}`}
+              documentText={generateActText(deal)}
+              triggerLabel="Посмотреть и подписать акт"
+              onSign={(code) => signAct(deal.id, code, acceptanceRemarks.trim() || null)}
+            />
+            <Button
+              variant="outline"
+              disabled={!acceptanceRemarks.trim()}
+              onClick={() => rejectAct(deal.id, acceptanceRemarks.trim())}
+            >
+              Отклонить приёмку
+            </Button>
+          </div>
+          {!acceptanceRemarks.trim() && (
+            <p className="text-xs text-muted-foreground">
+              Чтобы отклонить приёмку, опишите причину в комментарии выше.
+            </p>
+          )}
         </div>
       )}
 
@@ -270,37 +301,10 @@ function ClientDealScreen({ dealId }: { dealId: string }) {
         </p>
       )}
 
-      <DisputePanel deal={deal} disputes={disputes} />
-
-      {CANCELLABLE.has(deal.status) && (
-        <div className="flex justify-end">
-          <CancelDealDialog dealId={deal.id} actor="client" triggerLabel="Отменить сделку" />
-        </div>
-      )}
-
       {/* Переписка временно скрыта на этом этапе пилота — стороны общаются вне платформы,
           см. PRD раздел 21. Компонент и данные messages не удалены, чтобы вернуть в одну строку. */}
 
-      {ESCALATABLE.has(deal.status) && (
-        <section className="grid gap-2">
-          <h2 className="text-sm font-semibold">Позвать оператора</h2>
-          <Textarea
-            value={operatorReason}
-            onChange={(e) => setOperatorReason(e.target.value)}
-            placeholder="Опишите проблему, например: задержка сроков"
-          />
-          <Button
-            variant="outline"
-            disabled={!operatorReason.trim()}
-            onClick={() => {
-              callOperator(deal.id, 'client', operatorReason.trim())
-              setOperatorReason('')
-            }}
-          >
-            Сообщить о проблеме
-          </Button>
-        </section>
-      )}
+      <DisputePanel deal={deal} disputes={disputes} />
     </div>
   )
 }

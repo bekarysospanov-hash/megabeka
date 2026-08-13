@@ -6,7 +6,9 @@ import { ToggleChips } from './ToggleChips'
 import {
   CATEGORY_LABELS,
   CONFIGURATION_LABELS,
+  COUNTERTOP_COLOR_LABELS,
   COUNTERTOP_LABELS,
+  FACADE_COLOR_LABELS,
   FACADE_MATERIAL_LABELS,
   FACADE_TYPE_LABELS,
   HARDWARE_LABELS,
@@ -25,14 +27,15 @@ export type RevisionFieldKey =
   | 'facadeMaterial'
   | 'facadeType'
   | 'countertopType'
-  | 'finish'
+  | 'facadeColor'
+  | 'countertopColor'
   | 'qualityTier'
   | 'hardwareTier'
   | 'openingSystem'
   | 'drawerCount'
-  | 'heightCm'
-  | 'depthCm'
-  | 'lengthCm'
+  | 'heightMm'
+  | 'depthMm'
+  | 'lengthMm'
 
 export interface RevisionSubmission {
   field: RevisionFieldKey
@@ -44,9 +47,9 @@ const NUMERIC_FIELDS = new Set<RevisionFieldKey>([
   'amount',
   'deadline',
   'drawerCount',
-  'heightCm',
-  'depthCm',
-  'lengthCm',
+  'heightMm',
+  'depthMm',
+  'lengthMm',
 ])
 const SELECT_OPTIONS: Partial<Record<RevisionFieldKey, Record<string, string>>> = {
   category: CATEGORY_LABELS,
@@ -55,6 +58,8 @@ const SELECT_OPTIONS: Partial<Record<RevisionFieldKey, Record<string, string>>> 
   facadeMaterial: FACADE_MATERIAL_LABELS,
   facadeType: FACADE_TYPE_LABELS,
   countertopType: COUNTERTOP_LABELS,
+  facadeColor: FACADE_COLOR_LABELS,
+  countertopColor: COUNTERTOP_COLOR_LABELS,
   qualityTier: QUALITY_LABELS,
   hardwareTier: HARDWARE_LABELS,
   openingSystem: OPENING_SYSTEM_LABELS,
@@ -69,14 +74,15 @@ const FIELD_LABELS: Record<RevisionFieldKey, string> = {
   facadeMaterial: 'Материал фасадов',
   facadeType: 'Тип фасадов',
   countertopType: 'Столешница',
-  finish: 'Цвет / отделка',
+  facadeColor: 'Цвет фасада',
+  countertopColor: 'Цвет столешницы',
   qualityTier: 'Ценовой сегмент',
   hardwareTier: 'Класс фурнитуры',
   openingSystem: 'Система открывания',
   drawerCount: 'Кол-во ящиков',
-  heightCm: 'Высота, см',
-  depthCm: 'Глубина, см',
-  lengthCm: 'Длина, см',
+  heightMm: 'Высота, мм',
+  depthMm: 'Глубина, мм',
+  lengthMm: 'Длина, мм',
 }
 
 // Порядок полей для чипов и для итогового списка инпутов — сохраняем группировку по смыслу,
@@ -93,14 +99,15 @@ const REVISION_FIELD_ORDER: RevisionFieldKey[] = [
   'facadeMaterial',
   'facadeType',
   'countertopType',
-  'finish',
+  'facadeColor',
+  'countertopColor',
   'qualityTier',
   'hardwareTier',
   'openingSystem',
   'drawerCount',
-  'heightCm',
-  'depthCm',
-  'lengthCm',
+  'heightMm',
+  'depthMm',
+  'lengthMm',
 ]
 
 function currentValue(deal: Deal, field: RevisionFieldKey): string {
@@ -110,33 +117,39 @@ function currentValue(deal: Deal, field: RevisionFieldKey): string {
     case 'deadline':
       return deal.estimatedProductionDays != null ? String(deal.estimatedProductionDays) : '—'
     case 'category':
-      return deal.category ? CATEGORY_LABELS[deal.category] : '—'
+      return deal.category === 'other' && deal.categoryCustom
+        ? deal.categoryCustom
+        : deal.category
+          ? CATEGORY_LABELS[deal.category]
+          : '—'
     case 'configuration':
-      return deal.configuration ? CONFIGURATION_LABELS[deal.configuration] : '—'
+      return deal.configuration ? CONFIGURATION_LABELS[deal.configuration] ?? deal.configuration : '—'
     case 'material':
-      return deal.material ? MATERIAL_LABELS[deal.material] : '—'
+      return deal.material ? MATERIAL_LABELS[deal.material] ?? deal.material : '—'
     case 'facadeMaterial':
-      return deal.facadeMaterial ? FACADE_MATERIAL_LABELS[deal.facadeMaterial] : '—'
+      return deal.facadeMaterial ? FACADE_MATERIAL_LABELS[deal.facadeMaterial] ?? deal.facadeMaterial : '—'
     case 'facadeType':
-      return deal.facadeType ? FACADE_TYPE_LABELS[deal.facadeType] : '—'
+      return deal.facadeType ? FACADE_TYPE_LABELS[deal.facadeType] ?? deal.facadeType : '—'
     case 'countertopType':
-      return deal.countertopType ? COUNTERTOP_LABELS[deal.countertopType] : '—'
-    case 'finish':
-      return deal.finish ?? '—'
+      return deal.countertopType ? COUNTERTOP_LABELS[deal.countertopType] ?? deal.countertopType : '—'
+    case 'facadeColor':
+      return deal.facadeColor ? FACADE_COLOR_LABELS[deal.facadeColor] ?? deal.facadeColor : '—'
+    case 'countertopColor':
+      return deal.countertopColor ? COUNTERTOP_COLOR_LABELS[deal.countertopColor] ?? deal.countertopColor : '—'
     case 'qualityTier':
       return deal.qualityTier ? QUALITY_LABELS[deal.qualityTier] : '—'
     case 'hardwareTier':
-      return deal.hardwareTier ? HARDWARE_LABELS[deal.hardwareTier] : '—'
+      return deal.hardwareTier ? HARDWARE_LABELS[deal.hardwareTier] ?? deal.hardwareTier : '—'
     case 'openingSystem':
-      return deal.openingSystem ? OPENING_SYSTEM_LABELS[deal.openingSystem] : '—'
+      return deal.openingSystem ? OPENING_SYSTEM_LABELS[deal.openingSystem] ?? deal.openingSystem : '—'
     case 'drawerCount':
       return deal.drawerCount != null ? String(deal.drawerCount) : '—'
-    case 'heightCm':
-      return deal.heightCm != null ? String(deal.heightCm) : '—'
-    case 'depthCm':
-      return deal.depthCm != null ? String(deal.depthCm) : '—'
-    case 'lengthCm':
-      return deal.lengthCm != null ? String(deal.lengthCm) : '—'
+    case 'heightMm':
+      return deal.heightMm != null ? String(deal.heightMm) : '—'
+    case 'depthMm':
+      return deal.depthMm != null ? String(deal.depthMm) : '—'
+    case 'lengthMm':
+      return deal.lengthMm != null ? String(deal.lengthMm) : '—'
   }
 }
 

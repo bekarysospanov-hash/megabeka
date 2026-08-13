@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+import { AcquiringPaymentDialog } from './AcquiringPaymentDialog'
 import { DemoModeBanner } from './DemoModeBanner'
 import { formatMoney } from '../domain/statusLabels'
 import type { PaymentMethod } from '../domain/types'
@@ -19,9 +19,6 @@ export function PaymentMethodPicker({
   onSubmit: (method: PaymentMethod) => void
 }) {
   const [method, setMethod] = useState<PaymentMethod | null>(null)
-  const [cardNumber, setCardNumber] = useState('')
-  const [expiry, setExpiry] = useState('')
-  const [cvv, setCvv] = useState('')
   const [bank, setBank] = useState<string | null>(null)
 
   return (
@@ -37,14 +34,14 @@ export function PaymentMethodPicker({
 
       {method === 'card' && (
         <div className="grid gap-2 rounded-lg border p-4">
-          <Input placeholder="Номер карты" value={cardNumber} onChange={(e) => setCardNumber(e.target.value)} />
-          <div className="flex gap-2">
-            <Input placeholder="ММ/ГГ" value={expiry} onChange={(e) => setExpiry(e.target.value)} className="w-24" />
-            <Input placeholder="CVV" value={cvv} onChange={(e) => setCvv(e.target.value)} className="w-20" />
-          </div>
-          <Button disabled={cardNumber.trim().length < 4} onClick={() => onSubmit('card')} className="w-fit">
-            Оплатить {formatMoney(amount)}
-          </Button>
+          <p className="text-sm text-muted-foreground">
+            Оплата картой проходит через защищённый эквайринг — вас перенаправит на страницу оплаты.
+          </p>
+          <AcquiringPaymentDialog
+            amount={amount}
+            triggerLabel={`Оплатить ${formatMoney(amount)} картой`}
+            onSubmit={() => onSubmit('card')}
+          />
         </div>
       )}
 

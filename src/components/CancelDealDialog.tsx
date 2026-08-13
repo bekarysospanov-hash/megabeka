@@ -33,9 +33,7 @@ export function CancelDealDialog({
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button variant="ghost" size="sm">
-          {triggerLabel}
-        </Button>
+        <Button variant="outline">{triggerLabel}</Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
