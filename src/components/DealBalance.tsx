@@ -10,12 +10,14 @@ import type { PayoutRequisites, Transaction, TransferRequest } from '../domain/t
 
 export function DealBalance({
   dealId,
+  dealAmount,
   transactions,
   transferRequests,
   payoutRequisites,
   showRequisitesPrompt = true,
 }: {
   dealId: string
+  dealAmount: number
   transactions: Transaction[]
   transferRequests: TransferRequest[]
   payoutRequisites: PayoutRequisites | null
@@ -36,9 +38,13 @@ export function DealBalance({
 
   return (
     <section className="grid gap-3 rounded-lg border p-4">
+      <div className="flex items-center justify-between text-sm text-muted-foreground">
+        <span>Получено от клиента (всего)</span>
+        <span className="font-medium text-foreground">{formatMoney(dealAmount)}</span>
+      </div>
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold">
-          Баланс на счету Asia Mebel
+          Доступно к запросу перевода
           {payoutRequisites && (
             <span className="ml-2 font-normal text-muted-foreground">
               · {payoutRequisites.bankName}, счёт {maskAccountNumber(payoutRequisites.accountNumber)}
@@ -48,8 +54,8 @@ export function DealBalance({
         <span className="text-lg font-semibold">{formatMoney(available)}</span>
       </div>
       <p className="text-xs text-muted-foreground">
-        Деньги от клиента поступают на счёт платформы. Запросите перевод под конкретную цель, например
-        закуп материалов — остальное останется доступным для следующих запросов.
+        Вся сумма от клиента удерживается платформой и раскрывается вам траншами. Запросите перевод под
+        конкретную цель, например закуп материалов — остальное останется доступным для следующих запросов.
       </p>
 
       {payoutRequisites ? (

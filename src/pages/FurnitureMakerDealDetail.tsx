@@ -309,6 +309,7 @@ export function FurnitureMakerDealDetail() {
           <PayoutTimeline deal={deal} transactions={transactions} />
           <DealBalance
             dealId={deal.id}
+            dealAmount={deal.amount}
             transactions={transactions}
             transferRequests={transferRequests}
             payoutRequisites={payoutRequisites}

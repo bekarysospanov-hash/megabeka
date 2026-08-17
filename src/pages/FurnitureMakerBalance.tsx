@@ -49,6 +49,7 @@ export function FurnitureMakerBalance() {
               </Link>
               <DealBalance
                 dealId={deal.id}
+                dealAmount={deal.amount}
                 transactions={transactions.filter((t) => t.dealId === deal.id)}
                 transferRequests={transferRequests.filter((r) => r.dealId === deal.id)}
                 payoutRequisites={payoutRequisites}
