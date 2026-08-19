@@ -31,6 +31,7 @@ import {
   submitPayment as submitPaymentFn,
   updateDealSpec as updateDealSpecFn,
 } from '../domain/dealMachine'
+import { validatePaymentSplit } from '../domain/dealLimits'
 import { generateId } from '../domain/id'
 import {
   buildActRejectedNotification,
@@ -137,7 +138,14 @@ function isValidDemoState(value: unknown): value is DemoState {
       typeof d.guaranteeIssuedAt === 'string' &&
       typeof d.acceptedWithRemarks === 'boolean' &&
       Array.isArray(d.specialMechanisms) &&
-      Array.isArray(d.appliances)
+      Array.isArray(d.appliances) &&
+      // Схема траншей, сохранённая до введения потолка FR-04 (например, 30/30/40), иначе
+      // пережила бы обновление и показала бы на демонстрации запрещённый продуктом сплит.
+      validatePaymentSplit(
+        d.prepaymentPercent as number,
+        (d.interimPercent as number) ?? 0,
+        d.finalPercent as number,
+      ).valid
     )
   })
 }

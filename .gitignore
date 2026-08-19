@@ -4,3 +4,8 @@ dist-ssr
 *.local
 .DS_Store
 .claude/
+
+# Артефакты инкрементальной сборки tsc -b
+*.tsbuildinfo
+vite.config.d.ts
+vite.config.js

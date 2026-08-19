@@ -22,8 +22,9 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { STATUS_LABELS, formatDate, formatMoney } from '../domain/statusLabels'
+import { STATUS_LABELS, formatDate } from '../domain/statusLabels'
 import type { DealStatus } from '../domain/types'
+import { Money } from '../components/Money'
 
 // dispute_open и cancelled_refunded не включены: у них своя логика входа
 // (callOperator создаёт DisputeLog и previousStatus; initiateRefund требует dispute_open) —
@@ -50,7 +51,7 @@ export function OperatorDealDetail() {
         <div>
           <h1 className="text-xl font-semibold tracking-tight">{deal.title}</h1>
           <div className="text-sm text-muted-foreground">
-            {formatMoney(deal.amount)}
+            <Money amount={deal.amount} />
             {deal.clientName && ` · ${deal.clientName}`}
             {deal.clientPhone && ` · ${deal.clientPhone}`}
           </div>

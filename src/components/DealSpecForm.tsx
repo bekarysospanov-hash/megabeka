@@ -33,8 +33,13 @@ import type {
   SpecialMechanism,
 } from '../domain/types'
 import { cn } from '@/lib/utils'
-
-const DEFAULT_COMMISSION_PERCENT = 10
+import {
+  DEAL_AMOUNT_LIMIT,
+  DEFAULT_COMMISSION_PERCENT,
+  exceedsDealAmountLimit,
+  validatePaymentSplit,
+} from '../domain/dealLimits'
+import { formatMoney } from '../domain/statusLabels'
 
 type SplitScheme = 'even' | 'three_way'
 
@@ -48,7 +53,9 @@ const SPLIT_PRESETS: Record<
   { label: string; prepaymentPercent: number; interimPercent: number; finalPercent: number }
 > = {
   even: { label: '50 / 50', prepaymentPercent: 50, interimPercent: 0, finalPercent: 50 },
-  three_way: { label: '30 / 30 / 40', prepaymentPercent: 30, interimPercent: 30, finalPercent: 40 },
+  // Было 30 / 30 / 40 — схема нарушала FR-04: до приёмки уходило 60% при потолке 50%.
+  // 30 / 20 / 50 даёт ровно потолок и сохраняет смысл трёхчастного сплита.
+  three_way: { label: '30 / 20 / 50', prepaymentPercent: 30, interimPercent: 20, finalPercent: 50 },
 }
 
 function FormSection({
@@ -142,7 +149,15 @@ export function DealSpecForm({
       preset.finalPercent === finalPercent,
   )?.[0]
 
-  const canSubmit = title.trim().length > 0 && Number(amount) > 0 && contactPhone.trim().length > 0
+  // FR-03/FR-04: схема траншей проверяется до сохранения, а не только при первой отправке —
+  // через форму правок она может прийти и в согласовании.
+  const splitValidation = validatePaymentSplit(prepaymentPercent, interimPercent, finalPercent)
+  const overDealLimit = Number(amount) > 0 && exceedsDealAmountLimit(Number(amount))
+  const canSubmit =
+    title.trim().length > 0 &&
+    Number(amount) > 0 &&
+    contactPhone.trim().length > 0 &&
+    splitValidation.valid
   const showApplianceSection = category != null && APPLIANCE_RELEVANT_CATEGORIES.includes(category)
   const showCountertop = category != null && COUNTERTOP_RELEVANT_CATEGORIES.includes(category)
 
@@ -454,6 +469,15 @@ export function DealSpecForm({
                 : `Предоплата ${prepaymentPercent}% / финальный платёж ${finalPercent}%`}{' '}
               · комиссия платформы {commissionPercent}%
             </p>
+            {!splitValidation.valid && (
+              <p className="text-xs text-destructive">{splitValidation.error}</p>
+            )}
+            {overDealLimit && (
+              <p className="text-xs text-warning">
+                Выше лимита {formatMoney(DEAL_AMOUNT_LIMIT)} на одну сделку — потребуется одобрение
+                оператора перед отправкой клиенту.
+              </p>
+            )}
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="deal-production-days">Срок изготовления, дней</Label>

@@ -40,12 +40,13 @@ export const STATUS_TONES: Record<DealStatus, StatusTone> = {
   cancelled: 'neutral',
 }
 
+// Символ ₸, а не код KZT, который Intl подставляет для локали ru-RU: дизайн-спека (раздел 7)
+// требует вид «1 840 000 ₸» — разряды неразрывными пробелами, знак тенге после суммы.
 export function formatMoney(amount: number): string {
-  return new Intl.NumberFormat('ru-RU', {
-    style: 'currency',
-    currency: 'KZT',
-    maximumFractionDigits: 0,
-  }).format(amount)
+  const digits = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(amount)
+  // Перед знаком тенге — неразрывный пробел (U+00A0): на узком мобильном экране сумма иначе
+  // разрывается переносом и знак уезжает на следующую строку отдельно от числа.
+  return `${digits} ₸`
 }
 
 export function maskAccountNumber(accountNumber: string): string {
@@ -53,18 +54,42 @@ export function maskAccountNumber(accountNumber: string): string {
   return digits.length >= 4 ? `•• ${digits.slice(-4)}` : '••••'
 }
 
+// Дизайн-спека (раздел 7): «16 августа», с годом только если год не текущий. Цифровой формат
+// 16.08.2026 читается как отчётная выгрузка, а лист сделки должен читаться как документ,
+// написанный человеку.
+//
+// Правило действует только для интерфейсных текстов. Для договора и акта есть отдельный
+// formatDocumentDate: юридический документ обязан нести полную дату, а акт приёмки вдобавок
+// служит доказательством при разборе спора.
+function isCurrentYear(date: Date): boolean {
+  return date.getFullYear() === new Date().getFullYear()
+}
+
+/** Полная дата для договора, акта и сертификата гарантии — год не опускается никогда. */
+export function formatDocumentDate(iso: string): string {
+  return new Intl.DateTimeFormat('ru-RU', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(new Date(iso))
+}
+
 export function formatDate(iso: string): string {
-  return new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(
-    new Date(iso),
-  )
+  const date = new Date(iso)
+  return new Intl.DateTimeFormat('ru-RU', {
+    day: 'numeric',
+    month: 'long',
+    ...(isCurrentYear(date) ? {} : { year: 'numeric' }),
+  }).format(date)
 }
 
 export function formatDateTime(iso: string): string {
+  const date = new Date(iso)
   return new Intl.DateTimeFormat('ru-RU', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
+    day: 'numeric',
+    month: 'long',
+    ...(isCurrentYear(date) ? {} : { year: 'numeric' }),
     hour: '2-digit',
     minute: '2-digit',
-  }).format(new Date(iso))
+  }).format(date)
 }

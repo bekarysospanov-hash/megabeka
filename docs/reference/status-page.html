@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Сделка №2026-0147 — Безопасная сделка</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#EDEEE9;
+  --surface:#F8F9F6;
+  --ink:#14171A;
+  --ink-2:#5B6269;
+  --ink-3:#8A9098;
+  --line:#CDD0C8;
+  --line-2:#DFE1DA;
+  --reserve:#1F4B99;
+  --reserve-soft:#E3E9F4;
+  --released:#2E6B4F;
+  --released-soft:#E2EDE7;
+  --wait:#A85A17;
+  --wait-soft:#F6E9DC;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:'Golos Text',system-ui,sans-serif;
+  font-size:15px;
+  line-height:1.5;
+  padding:24px 16px 64px;
+  background-image:linear-gradient(var(--line-2) 1px,transparent 1px),linear-gradient(90deg,var(--line-2) 1px,transparent 1px);
+  background-size:32px 32px;
+}
+.sheet{max-width:760px;margin:0 auto;background:var(--surface);border:1px solid var(--line);box-shadow:0 1px 0 var(--line),0 12px 32px rgba(20,23,26,.06)}
+.mono{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}
+.eyebrow{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
+
+/* демо-переключатель */
+.demo{max-width:760px;margin:0 auto 20px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.demo-label{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin-right:6px}
+.demo button{font-family:'IBM Plex Mono',monospace;font-size:12px;padding:6px 11px;background:transparent;border:1px solid var(--line);color:var(--ink-2);cursor:pointer;border-radius:0}
+.demo button:hover{background:var(--surface)}
+.demo button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--surface)}
+.demo button:focus-visible{outline:2px solid var(--reserve);outline-offset:2px}
+
+/* шапка */
+.head{padding:26px 30px 22px;border-bottom:1px solid var(--line)}
+.head-top{display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap;margin-bottom:14px}
+.deal-no{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:500;color:var(--ink-2)}
+.title{font-size:26px;font-weight:700;letter-spacing:-.02em;line-height:1.2;margin-bottom:16px}
+.parties{display:flex;flex-wrap:wrap;gap:0 40px;border-top:1px solid var(--line-2);padding-top:14px}
+.party{min-width:180px;flex:1}
+.party dt{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin-bottom:3px}
+.party dd{font-size:14px;font-weight:500}
+
+/* деньги */
+.money{padding:26px 30px;border-bottom:1px solid var(--line)}
+.money-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:16px;gap:12px;flex-wrap:wrap}
+.money-total{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600;letter-spacing:-.02em}
+.bar{display:flex;gap:3px;margin-bottom:12px}
+.tranche{flex:1;border:1px solid;padding:13px 14px 15px;position:relative}
+.tranche.is-reserved{background:var(--reserve-soft);border-color:var(--reserve)}
+.tranche.is-released{background:var(--released-soft);border-color:var(--released)}
+.tranche.is-pending{background:transparent;border-color:var(--line);border-style:dashed}
+.tranche-no{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;color:var(--ink-3);margin-bottom:5px}
+.tranche-sum{font-family:'IBM Plex Mono',monospace;font-size:17px;font-weight:600;margin-bottom:6px}
+.tranche-state{font-size:12.5px;line-height:1.35;font-weight:500}
+.is-reserved .tranche-state{color:var(--reserve)}
+.is-released .tranche-state{color:var(--released)}
+.is-pending .tranche-state{color:var(--ink-3)}
+.money-note{font-size:13px;color:var(--ink-2);border-left:2px solid var(--line);padding-left:11px}
+
+/* текущее состояние */
+.now{padding:26px 30px;border-bottom:1px solid var(--line);background:var(--surface)}
+.now.is-action{background:var(--wait-soft)}
+.now-state{font-size:20px;font-weight:700;letter-spacing:-.015em;margin:7px 0 9px}
+.now-text{font-size:14.5px;color:var(--ink-2);max-width:56ch;margin-bottom:18px}
+.actions{display:flex;flex-wrap:wrap;gap:9px;margin-bottom:18px}
+.btn{font-family:'Golos Text',sans-serif;font-size:14px;font-weight:600;padding:11px 20px;border:1px solid var(--ink);background:var(--ink);color:var(--surface);cursor:pointer}
+.btn:hover{background:#000}
+.btn.secondary{background:transparent;color:var(--ink)}
+.btn.secondary:hover{background:rgba(20,23,26,.05)}
+.btn:focus-visible{outline:2px solid var(--reserve);outline-offset:2px}
+.deadline{display:flex;gap:11px;align-items:flex-start;border-top:1px dashed var(--line);padding-top:14px}
+.deadline-mark{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--wait);white-space:nowrap;padding-top:2px}
+.deadline-text{font-size:13.5px;color:var(--ink-2);max-width:52ch}
+.deadline-text b{color:var(--ink);font-weight:600}
+
+/* хронология */
+.log{padding:26px 30px}
+.log h2{font-size:13px;font-weight:600;letter-spacing:.04em;margin-bottom:16px}
+.step{display:grid;grid-template-columns:88px 18px 1fr;gap:0 12px;padding-bottom:18px;position:relative}
+.step:last-child{padding-bottom:0}
+.step-date{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink-3);padding-top:1px}
+.step-rail{position:relative;display:flex;justify-content:center}
+.step-dot{width:9px;height:9px;border:1.5px solid var(--ink);background:var(--surface);margin-top:5px;z-index:1}
+.step.done .step-dot{background:var(--ink)}
+.step.current .step-dot{border-color:var(--wait);background:var(--wait);box-shadow:0 0 0 3px var(--wait-soft)}
+.step.future .step-dot{border-color:var(--line);background:var(--surface)}
+.step:not(:last-child) .step-rail::after{content:"";position:absolute;top:14px;bottom:-18px;width:1px;background:var(--line)}
+.step-body h3{font-size:14.5px;font-weight:600;margin-bottom:2px}
+.step.future .step-body h3{color:var(--ink-3);font-weight:500}
+.step-body p{font-size:13px;color:var(--ink-2)}
+
+/* штамп */
+.stamp{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line)}
+.stamp div{padding:13px 16px;border-right:1px solid var(--line-2)}
+.stamp div:last-child{border-right:none}
+.stamp dt{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin-bottom:3px}
+.stamp dd{font-size:13px;font-weight:500}
+.stamp dd a{color:var(--ink);text-decoration:underline;text-underline-offset:2px}
+
+@media (max-width:640px){
+  body{padding:16px 10px 48px}
+  .head,.money,.now,.log{padding:22px 18px}
+  .title{font-size:21px}
+  .bar{flex-direction:column}
+  .step{grid-template-columns:70px 18px 1fr}
+  .stamp{grid-template-columns:1fr;}
+  .stamp div{border-right:none;border-bottom:1px solid var(--line-2)}
+  .stamp div:last-child{border-bottom:none}
+}
+@media (prefers-reduced-motion:no-preference){
+  .sheet{transition:opacity .18s ease}
+}
+</style>
+</head>
+<body>
+
+<nav class="demo" aria-label="Демонстрация состояний">
+  <span class="demo-label">Состояние</span>
+  <button data-state="0" aria-pressed="false">Оплачено</button>
+  <button data-state="1" aria-pressed="false">В производстве</button>
+  <button data-state="2" aria-pressed="false">Готово к отгрузке</button>
+  <button data-state="3" aria-pressed="true">Приёмка</button>
+  <button data-state="4" aria-pressed="false">Завершена</button>
+</nav>
+
+<main class="sheet">
+
+  <header class="head">
+    <div class="head-top">
+      <span class="deal-no">Сделка № 2026-0147</span>
+      <span class="eyebrow" id="head-status">Ожидает вашего действия</span>
+    </div>
+    <h1 class="title">Кухонный гарнитур по индивидуальному проекту, 4,2 м</h1>
+    <dl class="parties">
+      <div class="party"><dt>Заказчик</dt><dd>Айгерим Досжанова</dd></div>
+      <div class="party"><dt>Производитель</dt><dd>Мебельный цех «Астра»</dd></div>
+      <div class="party"><dt>Адрес установки</dt><dd>Алматы, Розыбакиева 247, кв. 84</dd></div>
+    </dl>
+  </header>
+
+  <section class="money" aria-labelledby="money-h">
+    <div class="money-head">
+      <h2 class="eyebrow" id="money-h">Где ваши деньги</h2>
+      <span class="money-total">1 840 000 ₸</span>
+    </div>
+    <div class="bar">
+      <div class="tranche is-released" id="t1">
+        <div class="tranche-no">Транш 1 · 50%</div>
+        <div class="tranche-sum">920 000 ₸</div>
+        <div class="tranche-state" id="t1-state">Переведён производителю 4 августа</div>
+      </div>
+      <div class="tranche is-reserved" id="t2">
+        <div class="tranche-no">Транш 2 · 50%</div>
+        <div class="tranche-sum">920 000 ₸</div>
+        <div class="tranche-state" id="t2-state">Заморожен до вашей приёмки</div>
+      </div>
+    </div>
+    <p class="money-note" id="money-note">Пока вы не примете работу, вторая половина остаётся на защищённом счёте. Производитель не может её получить.</p>
+  </section>
+
+  <section class="now is-action" id="now" aria-live="polite">
+    <span class="eyebrow" id="now-eyebrow">Сейчас</span>
+    <h2 class="now-state" id="now-state">Проверьте установленную мебель</h2>
+    <p class="now-text" id="now-text">Бригада закончила установку 16 августа в 18:40. Осмотрите гарнитур: откройте все дверцы и ящики, проверьте фасады на сколы, работу петель и доводчиков, подключение мойки и техники.</p>
+    <div class="actions" id="now-actions">
+      <button class="btn">Принять работу</button>
+      <button class="btn secondary">Сообщить о недостатках</button>
+    </div>
+    <div class="deadline" id="deadline">
+      <span class="deadline-mark">Если ничего не делать</span>
+      <p class="deadline-text"><b>19 августа в 18:40</b> работа считается принятой автоматически, и вторая половина уходит производителю. Осталось 2 дня 7 часов. Если вы нашли недостатки — нажмите «Сообщить», и отсчёт остановится.</p>
+    </div>
+  </section>
+
+  <section class="log" aria-labelledby="log-h">
+    <h2 class="eyebrow" id="log-h">Что уже произошло</h2>
+    <div id="steps"></div>
+  </section>
+
+  <dl class="stamp">
+    <div><dt>Ваш менеджер</dt><dd>Ержан Сапаров</dd></div>
+    <div><dt>Связаться</dt><dd><a href="tel:+77012345678">+7 701 234 56 78</a></dd></div>
+    <div><dt>Договор</dt><dd><a href="#">Скачать PDF · 240 КБ</a></dd></div>
+  </dl>
+
+</main>
+
+<script>
+const S=[
+ {label:"Деньги зарезервированы",eyebrow:"Сейчас",head:"Ждём подтверждения от производителя",
+  state:"Деньги на защищённом счёте",
+  text:"Вся сумма списана с вашей карты и заморожена. Производитель видит заказ и должен подтвердить, что берётся за работу.",
+  actions:'<button class="btn secondary">Отменить сделку</button>',
+  action:false,
+  deadline:"<b>7 августа в 12:00</b> — если производитель не подтвердит заказ, сделка отменится и вся сумма вернётся вам целиком. От вас ничего не требуется.",
+  t1:["is-reserved","Заморожен на счёте"],t2:["is-reserved","Заморожен на счёте"],
+  note:"Вся сумма на защищённом счёте. Производитель пока не получил ничего.", cur:0},
+
+ {label:"Идёт производство",eyebrow:"Сейчас",head:"Идёт производство",
+  state:"Гарнитур в работе",
+  text:"Производитель подтвердил заказ, и первая половина суммы переведена ему на закуп материалов. Плановый срок готовности — 14 августа.",
+  actions:'<button class="btn secondary">Задать вопрос менеджеру</button>',
+  action:false,
+  deadline:"Если производитель сорвёт срок больше чем на 10 дней, вы сможете расторгнуть сделку и вернуть вторую половину. Первая к этому моменту уже потрачена на материалы.",
+  t1:["is-released","Переведён производителю 4 августа"],t2:["is-reserved","Заморожен до приёмки"],
+  note:"Вторая половина остаётся у нас и уйдёт производителю только после того, как вы примете работу.", cur:1},
+
+ {label:"Готово к отгрузке",eyebrow:"Сейчас",head:"Согласуйте дату установки",
+  state:"Гарнитур готов, нужна дата установки",
+  text:"Производитель сообщил о готовности 14 августа и прислал фотографии. Выберите удобный день — бригада приедет с 9:00 до 18:00.",
+  actions:'<button class="btn">Выбрать дату</button><button class="btn secondary">Посмотреть фото</button>',
+  action:true,
+  deadline:"Дата не выбрана. Гарнитур хранится на складе производителя бесплатно <b>до 28 августа</b>, дальше начнёт капать оплата за хранение — 3 000 ₸ в сутки.",
+  t1:["is-released","Переведён производителю 4 августа"],t2:["is-reserved","Заморожен до приёмки"],
+  note:"Вторая половина остаётся у нас и уйдёт производителю только после того, как вы примете работу.", cur:2},
+
+ {label:"Приёмка",eyebrow:"Сейчас",head:"Ожидает вашего действия",
+  state:"Проверьте установленную мебель",
+  text:"Бригада закончила установку 16 августа в 18:40. Осмотрите гарнитур: откройте все дверцы и ящики, проверьте фасады на сколы, работу петель и доводчиков, подключение мойки и техники.",
+  actions:'<button class="btn">Принять работу</button><button class="btn secondary">Сообщить о недостатках</button>',
+  action:true,
+  deadline:"<b>19 августа в 18:40</b> работа считается принятой автоматически, и вторая половина уходит производителю. Осталось 2 дня 7 часов. Если вы нашли недостатки — нажмите «Сообщить», и отсчёт остановится.",
+  t1:["is-released","Переведён производителю 4 августа"],t2:["is-reserved","Заморожен до вашей приёмки"],
+  note:"Пока вы не примете работу, вторая половина остаётся на защищённом счёте. Производитель не может её получить.", cur:3},
+
+ {label:"Сделка завершена",eyebrow:"Итог",head:"Сделка завершена",
+  state:"Работа принята, расчёт закрыт",
+  text:"Вы приняли работу 17 августа. Гарантия производителя — 24 месяца, до 17 августа 2028 года. Если что-то пойдёт не так, обращайтесь по договору.",
+  actions:'<button class="btn secondary">Скачать акт приёмки</button><button class="btn secondary">Оценить работу</button>',
+  action:false,
+  deadline:"",
+  t1:["is-released","Переведён производителю 4 августа"],t2:["is-released","Переведён производителю 17 августа"],
+  note:"Расчёт по сделке закрыт полностью.", cur:5}
+];
+
+const STEPS=[
+ {d:"3 августа",t:"Заказ создан",p:"Спецификация согласована, сумма зафиксирована"},
+ {d:"3 августа",t:"Деньги зарезервированы",p:"1 840 000 ₸ списаны и заморожены на защищённом счёте"},
+ {d:"4 августа",t:"Производитель принял заказ",p:"Первый транш переведён на закуп материалов"},
+ {d:"14 августа",t:"Гарнитур изготовлен",p:"Производитель подтвердил готовность и прислал фото"},
+ {d:"16 августа",t:"Установка завершена",p:"Бригада отчиталась в 18:40"},
+ {d:"—",t:"Приёмка и расчёт",p:"Второй транш уходит производителю после вашей приёмки"}
+];
+
+function render(i){
+  const s=S[i];
+  document.getElementById("head-status").textContent=s.head;
+  document.getElementById("now-eyebrow").textContent=s.eyebrow;
+  document.getElementById("now-state").textContent=s.state;
+  document.getElementById("now-text").textContent=s.text;
+  document.getElementById("now-actions").innerHTML=s.actions;
+  document.getElementById("now").className="now"+(s.action?" is-action":"");
+  document.getElementById("money-note").textContent=s.note;
+
+  const dl=document.getElementById("deadline");
+  if(s.deadline){dl.style.display="";dl.querySelector(".deadline-text").innerHTML=s.deadline}
+  else{dl.style.display="none"}
+
+  document.getElementById("t1").className="tranche "+s.t1[0];
+  document.getElementById("t1-state").textContent=s.t1[1];
+  document.getElementById("t2").className="tranche "+s.t2[0];
+  document.getElementById("t2-state").textContent=s.t2[1];
+
+  document.getElementById("steps").innerHTML=STEPS.map((st,n)=>{
+    const cls=n<s.cur?"done":n===s.cur?"current":"future";
+    return `<div class="step ${cls}"><div class="step-date">${st.d}</div>
+      <div class="step-rail"><div class="step-dot"></div></div>
+      <div class="step-body"><h3>${st.t}</h3><p>${st.p}</p></div></div>`
+  }).join("");
+
+  document.querySelectorAll(".demo button").forEach((b,n)=>b.setAttribute("aria-pressed",n===i));
+}
+
+document.querySelectorAll(".demo button").forEach(b=>{
+  b.addEventListener("click",()=>render(+b.dataset.state))
+});
+render(3);
+</script>
+</body>
+</html>

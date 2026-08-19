@@ -4,8 +4,9 @@ import { dealsNeedingAttention } from '../domain/attention'
 import { calculateTotalBalance } from '../domain/balance'
 import { getProductionDeadline } from '../domain/productionTimer'
 import { groupDealsByStage } from '../domain/progressStages'
-import { formatMoney } from '../domain/statusLabels'
+
 import type { Deal, Transaction, TransferRequest } from '../domain/types'
+import { Money } from './Money'
 
 export function FurnitureMakerDashboardSummary({
   deals,
@@ -26,7 +27,7 @@ export function FurnitureMakerDashboardSummary({
     <div className="grid gap-3 sm:grid-cols-3">
       <Card className="p-4">
         <div className="text-xs text-muted-foreground">Баланс по всем сделкам</div>
-        <div className="mt-1 text-lg font-semibold">{formatMoney(totalBalance)}</div>
+        <div className="mt-1 text-lg font-semibold"><Money amount={totalBalance} /></div>
       </Card>
 
       <Card className="p-4">

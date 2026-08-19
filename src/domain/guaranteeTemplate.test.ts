@@ -27,4 +27,28 @@ describe('generateGuaranteeText', () => {
     expect(text).toContain('100%')
     expect(text.toLowerCase()).toContain('акт')
   })
+
+  it('при двухчастной схеме не упоминает промежуточный транш', () => {
+    const deal = createDeal(baseInput)
+    const text = generateGuaranteeText(deal)
+    expect(text).not.toContain('промежуточный транш')
+  })
+
+  it('при трёхчастной схеме описывает все три транша', () => {
+    const deal = createDeal({ ...baseInput, prepaymentPercent: 30, interimPercent: 20, finalPercent: 50 })
+    const text = generateGuaranteeText(deal)
+    expect(text).toContain('предоплата 30%')
+    expect(text).toContain('промежуточный транш 20%')
+    expect(text).toContain('окончательный платёж 50%')
+  })
+
+  it('не утверждает фиксированное число траншей словом', () => {
+    const deal = createDeal({ ...baseInput, prepaymentPercent: 30, interimPercent: 20, finalPercent: 50 })
+    expect(generateGuaranteeText(deal)).not.toContain('двумя траншами')
+  })
+
+  it('называет потолок выплат до приёмки (FR-04)', () => {
+    const text = generateGuaranteeText(createDeal(baseInput))
+    expect(text).toContain('не более 50%')
+  })
 })

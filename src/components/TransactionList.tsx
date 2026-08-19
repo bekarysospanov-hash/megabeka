@@ -1,5 +1,6 @@
-import { formatDateTime, formatMoney } from '../domain/statusLabels'
+import { formatDateTime } from '../domain/statusLabels'
 import type { Transaction } from '../domain/types'
+import { Money } from './Money'
 
 const TYPE_LABELS: Record<Transaction['type'], string> = {
   prepayment: 'Предоплата',
@@ -22,7 +23,7 @@ export function TransactionList({ transactions }: { transactions: Transaction[] 
               {formatDateTime(t.paidAt)} · поступило на счёт платформы
             </div>
           </div>
-          <div className="font-semibold">{formatMoney(t.amount)}</div>
+          <div className="font-semibold"><Money amount={t.amount} /></div>
         </li>
       ))}
     </ul>

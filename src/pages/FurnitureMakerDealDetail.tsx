@@ -22,14 +22,16 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { dealToSpecInput } from '../domain/dealMachine'
 import { generateActText, generateContractText } from '../domain/contractTemplate'
-import { calculateGuaranteeReserve, GUARANTEE_RESERVE_LIMIT } from '../domain/guaranteeReserve'
+import { calculateGuaranteeReserve } from '../domain/guaranteeReserve'
+import { DEAL_AMOUNT_LIMIT, exceedsDealAmountLimit } from '../domain/dealLimits'
 import { formatMoney } from '../domain/statusLabels'
+import { Money } from '../components/Money'
 
 export function FurnitureMakerDealDetail() {
   const { id } = useParams<{ id: string }>()
   const deal = useDeal(id)
   const { revisions, transactions, disputes, attachments, transferRequests } = useDealHistory(id)
-  const { payoutRequisites, deals } = useDemoState()
+  const { payoutRequisites, deals, transactions: allTransactions } = useDemoState()
   const {
     sendToClient,
     signByFurnitureMaker,
@@ -49,18 +51,28 @@ export function FurnitureMakerDealDetail() {
   // Резерв гарантии актуален только пока сделка не отправлена — не считаем его на каждый
   // рендер для сделок в остальных статусах.
   const missingRequisites = deal.status === 'draft' && !payoutRequisites
+  // Экспозиция резерва (FR-38) — это уже выплаченные транши по всем активным сделкам, а не
+  // сумма этой сделки: пока деньги не ушли мебельщику, резерв платформы не под риском.
   const availableReserve =
-    deal.status === 'draft' ? calculateGuaranteeReserve(Object.values(deals)).available : 0
-  const reserveShortfall = deal.amount - availableReserve
-  const reserveExceeded = deal.status === 'draft' && reserveShortfall > 0
+    deal.status === 'draft'
+      ? calculateGuaranteeReserve(Object.values(deals), allTransactions).available
+      : 0
+  const reserveExceeded = deal.status === 'draft' && availableReserve <= 0
+  // FR-36: сумма сверх лимита не запрещена, а требует одобрения оператора (FR-44). Состояния
+  // «Ожидает одобрения» и самого действия одобрения в прототипе пока нет, поэтому отправку
+  // здесь НЕ блокируем: иначе сделка встанет намертво — одобрить её было бы некому, и
+  // единственным выходом осталась бы правка суммы вниз. Предупреждение показываем.
+  const overDealLimit = deal.status === 'draft' && exceedsDealAmountLimit(deal.amount)
   const sendBlocked = missingRequisites || reserveExceeded
   // Последовательные шаги вместо стопки баннеров разом — на draft показываем ровно одно
   // следующее требование за раз, в этом порядке приоритета.
-  const nextRequirement: 'requisites' | 'reserve' | null = missingRequisites
+  const nextRequirement: 'requisites' | 'reserve' | 'approval' | null = missingRequisites
     ? 'requisites'
     : reserveExceeded
       ? 'reserve'
-      : null
+      : overDealLimit
+        ? 'approval'
+        : null
   // Зона D (Коммуникация) теперь показывает только открытый спор — DisputePanel сам
   // скрывается вне dispute_open, отдельного условия видимости зоны не нужно.
   const hasZoneD = deal.status === 'dispute_open'
@@ -72,7 +84,7 @@ export function FurnitureMakerDealDetail() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">{deal.title}</h1>
-          <div className="text-sm text-muted-foreground">{formatMoney(deal.amount)}</div>
+          <div className="text-sm text-muted-foreground"><Money amount={deal.amount} /></div>
         </div>
         <StatusBadge status={deal.status} />
       </div>
@@ -96,8 +108,14 @@ export function FurnitureMakerDealDetail() {
           )}
           {nextRequirement === 'reserve' && (
             <p className="text-sm text-warning">
-              Резерв гарантии исчерпан: не хватает {formatMoney(reserveShortfall)}. Дождитесь освобождения
-              резерва по другим сделкам.
+              Резерв гарантии исчерпан: выплаты по активным сделкам исчерпали покрытие. Приём новых сделок
+              приостановлен до освобождения резерва.
+            </p>
+          )}
+          {nextRequirement === 'approval' && (
+            <p className="text-sm text-warning">
+              Сумма сделки выше {formatMoney(DEAL_AMOUNT_LIMIT)} — по регламенту такие сделки проходят
+              одобрение оператора. Согласуйте её с оператором перед отправкой.
             </p>
           )}
 
@@ -153,13 +171,11 @@ export function FurnitureMakerDealDetail() {
                 initial={dealToSpecInput(deal)}
                 submitLabel="Отправить обновлённые условия клиенту"
                 onSubmit={(input) => {
-                  const otherReserveUsed = calculateGuaranteeReserve(
-                    Object.values(deals).filter((d) => d.id !== deal.id),
-                  ).used
-                  const availableForThisDeal = GUARANTEE_RESERVE_LIMIT - otherReserveUsed
-                  if (input.amount > availableForThisDeal) {
+                  // FR-52: сделка, отправленная в пределах лимита, может дорасти через торг выше
+                  // него — сумма перепроверяется на каждой правке, а не только при первой отправке.
+                  if (exceedsDealAmountLimit(input.amount)) {
                     setReserveWarning(
-                      `Новая сумма превышает доступный резерв гарантии — не хватает ${formatMoney(input.amount - availableForThisDeal)}.`,
+                      `Новая сумма выше лимита ${formatMoney(DEAL_AMOUNT_LIMIT)} — такие условия требуют одобрения оператора.`,
                     )
                     return
                   }

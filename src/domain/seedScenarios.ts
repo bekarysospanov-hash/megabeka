@@ -15,6 +15,7 @@ import {
   signByFurnitureMaker,
   submitPayment,
 } from './dealMachine'
+import { DEFAULT_COMMISSION_PERCENT } from './dealLimits'
 import type { CreateDealInput, Deal, DisputeLog, RevisionEntry, Transaction } from './types'
 
 export interface DemoScenario {
@@ -31,7 +32,7 @@ const HAPPY_INPUT: CreateDealInput = {
   amount: 800_000,
   prepaymentPercent: 50,
   finalPercent: 50,
-  commissionPercent: 10,
+  commissionPercent: DEFAULT_COMMISSION_PERCENT,
   estimatedProductionDays: 14,
 }
 
@@ -41,7 +42,7 @@ const REVISIONS_INPUT: CreateDealInput = {
   amount: 1_200_000,
   prepaymentPercent: 50,
   finalPercent: 50,
-  commissionPercent: 10,
+  commissionPercent: DEFAULT_COMMISSION_PERCENT,
   estimatedProductionDays: 21,
 }
 
@@ -51,7 +52,7 @@ const DISPUTE_INPUT: CreateDealInput = {
   amount: 650_000,
   prepaymentPercent: 50,
   finalPercent: 50,
-  commissionPercent: 10,
+  commissionPercent: DEFAULT_COMMISSION_PERCENT,
   estimatedProductionDays: 10,
 }
 

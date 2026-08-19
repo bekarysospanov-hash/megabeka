@@ -14,7 +14,7 @@ import {
   QUALITY_LABELS,
   SPECIAL_MECHANISM_LABELS,
 } from './orderSpecLabels'
-import { formatDate, formatMoney } from './statusLabels'
+import { formatDocumentDate, formatMoney } from './statusLabels'
 import type { Deal } from './types'
 
 export function generateContractText(deal: Deal): string {
@@ -66,7 +66,7 @@ export function generateContractText(deal: Deal): string {
   const productionDeadline = deal.estimatedProductionDays != null
     ? `${deal.estimatedProductionDays} дн. с момента подписания настоящего Договора обеими Сторонами`
     : 'согласуется Сторонами дополнительно после проведения замера и уточнения характеристик'
-  const today = formatDate(new Date().toISOString())
+  const today = formatDocumentDate(new Date().toISOString())
 
   return `ДОГОВОР ПОДРЯДА № ${deal.slug}
 на изготовление мебели по индивидуальному заказу
@@ -114,7 +114,7 @@ export function generateContractText(deal: Deal): string {
 
 export function generateActText(deal: Deal): string {
   const clientName = deal.clientName || deal.contactName || '__________________'
-  const today = formatDate(new Date().toISOString())
+  const today = formatDocumentDate(new Date().toISOString())
   const finalAmount = Math.round((deal.amount * deal.finalPercent) / 100)
 
   return `АКТ ПРИЁМА-ПЕРЕДАЧИ

@@ -12,6 +12,7 @@ import { PaymentMethodPicker, PaymentProcessing } from '../components/PaymentFlo
 import { GuaranteeBanner } from '../components/GuaranteeBanner'
 import { StepGuidanceCard } from '../components/StepGuidanceCard'
 import { DealProgressBar } from '../components/DealProgressBar'
+import { DealMoneyBoard } from '../components/DealMoneyBoard'
 import { OfferAgreementNote } from '../components/OfferAgreementNote'
 import { ProductionTimer } from '../components/ProductionTimer'
 import { RevisionRequestForm } from '../components/RevisionRequestForm'
@@ -23,6 +24,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { generateActText, generateContractText } from '../domain/contractTemplate'
 import { formatMoney } from '../domain/statusLabels'
 import type { Deal } from '../domain/types'
+import { Money } from '../components/Money'
 
 export function ClientDealEntry() {
   const { id } = useParams<{ id: string }>()
@@ -111,7 +113,7 @@ function ClientOnboarding({ deal }: { deal: Deal }) {
 
 function ClientDealScreen({ dealId }: { dealId: string }) {
   const deal = useDeal(dealId)!
-  const { revisions, disputes, attachments } = useDealHistory(dealId)
+  const { revisions, disputes, attachments, transactions } = useDealHistory(dealId)
   const {
     clientAccepts,
     requestRevisions,
@@ -132,12 +134,16 @@ function ClientDealScreen({ dealId }: { dealId: string }) {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">{deal.title}</h1>
-          <div className="text-sm text-muted-foreground">{formatMoney(deal.amount)}</div>
+          <div className="text-sm text-muted-foreground"><Money amount={deal.amount} /></div>
         </div>
         <StatusBadge status={deal.status} />
       </div>
 
       <DealProgressBar status={deal.status} />
+
+      {/* Блок «Деньги» стоит выше блока «Сейчас» сознательно (дизайн-спека, раздел 4):
+          первый вопрос клиента — про деньги, а не про процесс. */}
+      <DealMoneyBoard deal={deal} transactions={transactions} />
 
       <StepGuidanceCard status={deal.status} actor="client" />
 
@@ -209,7 +215,9 @@ function ClientDealScreen({ dealId }: { dealId: string }) {
 
       {(deal.status === 'contract_signed' || deal.status === 'payment_pending') && (
         <div className="grid gap-3">
-          <GuaranteeBanner perspective="client" />
+          {/* Баннер гарантии убран: обещание возврата теперь живёт в блоке «Деньги» точной
+              формулировкой с суммами (FR-08). Общая фраза «мы вернём вам оплату» рядом с ней
+              только размывала конкретику, а её иконка-щит запрещена разделом 2 дизайн-спеки. */}
           <DemoModeBanner>Оплата имитируется, реальный платёж не проводится.</DemoModeBanner>
           <PaymentMethodPicker amount={deal.amount} onSubmit={(method) => submitPayment(deal.id, method)} />
           <div className="flex flex-wrap gap-2">

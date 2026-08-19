@@ -1,15 +1,27 @@
 import { Card } from '@/components/ui/card'
 import { StatusBadge } from '../components/StatusBadge'
 import { useDemoState } from '../store/DemoProvider'
-import { GUARANTEE_RESERVE_LIMIT, dealsOccupyingReserve } from '../domain/guaranteeReserve'
+import { calculateGuaranteeReserve, dealsOccupyingReserve } from '../domain/guaranteeReserve'
 import { formatMoney } from '../domain/statusLabels'
+import { Money } from '../components/Money'
 
 export function OperatorGuaranteeReserve() {
-  const { deals } = useDemoState()
-  const occupying = dealsOccupyingReserve(Object.values(deals))
-  const limit = GUARANTEE_RESERVE_LIMIT
-  const used = occupying.reduce((sum, deal) => sum + deal.amount, 0)
-  const available = limit - used
+  const { deals, transactions } = useDemoState()
+  const dealList = Object.values(deals)
+  // Резерв занимают именно выплаты, поэтому в список попадают только сделки, по которым
+  // хоть что-то переведено: сделка без траншей под заголовком «занимающие резерв» с нулём
+  // напротив противоречила бы и заголовку, и цифре «Занято».
+  const occupying = dealsOccupyingReserve(dealList)
+    .map((deal) => ({
+      deal,
+      paidOut: transactions
+        .filter((t) => t.dealId === deal.id)
+        .reduce((sum, t) => sum + t.amount, 0),
+    }))
+    .filter((row) => row.paidOut > 0)
+  // Раньше формула считалась здесь второй раз вручную и по-другому (сумма сделок вместо
+  // выплаченных траншей) — теперь единственный источник расчёта общий с гейтом отправки.
+  const { limit, used, available } = calculateGuaranteeReserve(dealList, transactions)
 
   return (
     <div className="grid gap-6">
@@ -21,16 +33,16 @@ export function OperatorGuaranteeReserve() {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Card className="p-4">
           <div className="text-xs text-muted-foreground">Лимит</div>
-          <div className="mt-1 text-lg font-semibold">{formatMoney(limit)}</div>
+          <div className="mt-1 text-lg font-semibold"><Money amount={limit} /></div>
         </Card>
         <Card className="p-4">
           <div className="text-xs text-muted-foreground">Занято</div>
-          <div className="mt-1 text-lg font-semibold">{formatMoney(used)}</div>
+          <div className="mt-1 text-lg font-semibold"><Money amount={used} /></div>
         </Card>
         <Card className={available < 0 ? 'border-destructive/40 bg-destructive/5 p-4' : 'p-4'}>
           <div className="text-xs text-muted-foreground">Доступно</div>
           <div className={available < 0 ? 'mt-1 text-lg font-semibold text-destructive' : 'mt-1 text-lg font-semibold'}>
-            {formatMoney(available)}
+            <Money amount={available} />
           </div>
         </Card>
       </div>
@@ -41,11 +53,16 @@ export function OperatorGuaranteeReserve() {
           <p className="text-sm text-muted-foreground">Сейчас нет сделок, занимающих резерв гарантии.</p>
         ) : (
           <div className="grid gap-2">
-            {occupying.map((deal) => (
+            {occupying.map(({ deal, paidOut }) => (
               <Card key={deal.id} className="flex items-center justify-between gap-4 p-4">
-                <div className="font-medium">{deal.title}</div>
+                <div>
+                  <div className="font-medium">{deal.title}</div>
+                  <div className="text-xs text-muted-foreground">
+                    Сумма сделки {formatMoney(deal.amount)}
+                  </div>
+                </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-sm text-muted-foreground">{formatMoney(deal.amount)}</span>
+                  <span className="text-sm text-muted-foreground">Выплачено {formatMoney(paidOut)}</span>
                   <StatusBadge status={deal.status} />
                 </div>
               </Card>

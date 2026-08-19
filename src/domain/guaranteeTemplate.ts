@@ -1,9 +1,16 @@
-import { formatDate, formatMoney } from './statusLabels'
+import { PRE_ACCEPTANCE_SHARE_CAP } from './dealLimits'
+import { formatDocumentDate, formatMoney } from './statusLabels'
 import type { Deal } from './types'
 
 export function generateGuaranteeText(deal: Deal): string {
   const furnitureMakerLabel = 'мебельщик, зарегистрированный на платформе Asia Mebel'
-  const today = formatDate(deal.guaranteeIssuedAt)
+  const today = formatDocumentDate(deal.guaranteeIssuedAt)
+  // Число траншей выводится из фактической схемы сплита, а не зашито словом «двумя»:
+  // при трёхчастной схеме сертификат утверждал бы неверное.
+  const payoutSchedule =
+    deal.interimPercent > 0
+      ? `предоплата ${deal.prepaymentPercent}% — сразу после оплаты клиентом; промежуточный транш ${deal.interimPercent}% — в ходе производства; окончательный платёж ${deal.finalPercent}% — после подписания акта приёма-передачи`
+      : `предоплата ${deal.prepaymentPercent}% — сразу после оплаты клиентом; окончательный платёж ${deal.finalPercent}% — после подписания акта приёма-передачи`
 
   return `СЕРТИФИКАТ ГАРАНТИИ ASIA MEBEL
 по сделке «${deal.title}» № ${deal.slug}
@@ -14,8 +21,9 @@ export function generateGuaranteeText(deal: Deal): string {
 
 1. УСЛОВИЕ ГАРАНТИИ
 1.1. Основание для выплаты — подписанный обеими Сторонами акт приёма-передачи по сделке.
-1.2. Оплата поступает от клиента на счёт платформы Asia Mebel двумя траншами и становится доступна мебельщику на балансе платформы для запроса перевода.
-1.3. Предоплата в размере ${deal.prepaymentPercent}% доступна к запросу сразу после оплаты клиентом; окончательный платёж в размере ${deal.finalPercent}% — после подписания акта приёма-передачи.
+1.2. Клиент оплачивает сделку целиком одним платежом на счёт платформы Asia Mebel. Мебельщику сумма становится доступна на балансе платформы частями, по мере прохождения этапов.
+1.3. Порядок раскрытия: ${payoutSchedule}.
+1.4. До приёмки мебельщику выплачивается не более ${PRE_ACCEPTANCE_SHARE_CAP}% суммы сделки — оставшаяся часть удерживается платформой до подписания акта.
 
 2. ГАРАНТ
 2.1. На этапе пилота гарантом сделки выступает сама компания Asia Mebel — банковская гарантия через банк-партнёр планируется как следующий шаг после подтверждения модели пилотом.

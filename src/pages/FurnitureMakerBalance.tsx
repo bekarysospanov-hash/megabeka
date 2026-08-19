@@ -2,8 +2,9 @@ import { Link } from 'react-router-dom'
 import { BackLink } from '../components/BackLink'
 import { DealBalance } from '../components/DealBalance'
 import { calculateTotalBalance } from '../domain/balance'
-import { formatMoney } from '../domain/statusLabels'
+
 import { useDemoState } from '../store/DemoProvider'
+import { Money } from '../components/Money'
 
 export function FurnitureMakerBalance() {
   const { deals, transactions, transferRequests, payoutRequisites } = useDemoState()
@@ -25,7 +26,7 @@ export function FurnitureMakerBalance() {
 
       <div className="rounded-lg border p-5">
         <div className="text-xs text-muted-foreground">Общий доступный баланс</div>
-        <div className="text-2xl font-semibold">{formatMoney(total)}</div>
+        <div className="text-2xl font-semibold"><Money amount={total} /></div>
       </div>
 
       {!payoutRequisites && dealsWithMoney.length > 0 && (

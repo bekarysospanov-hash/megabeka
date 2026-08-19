@@ -21,7 +21,7 @@ export function ToggleChips<T extends string>({
             type="button"
             onClick={() => onToggle(opt)}
             className={cn(
-              'rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
+              'border px-3 py-1.5 text-xs font-medium transition-colors',
               active
                 ? 'border-primary bg-accent text-accent-foreground'
                 : 'text-muted-foreground hover:border-primary/40 hover:bg-accent/40',

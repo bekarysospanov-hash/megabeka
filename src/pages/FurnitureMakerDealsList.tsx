@@ -6,7 +6,8 @@ import { FurnitureMakerDashboardSummary } from '../components/FurnitureMakerDash
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { dealsNeedingAttention } from '../domain/attention'
-import { formatMoney } from '../domain/statusLabels'
+
+import { Money } from '../components/Money'
 
 export function FurnitureMakerDealsList() {
   const { deals, transactions, transferRequests } = useDemoState()
@@ -52,7 +53,7 @@ export function FurnitureMakerDealsList() {
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-1.5">
-                  <div className="font-semibold">{formatMoney(deal.amount)}</div>
+                  <div className="font-semibold"><Money amount={deal.amount} /></div>
                   <StatusBadge status={deal.status} />
                 </div>
               </div>

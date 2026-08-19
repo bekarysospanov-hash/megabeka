@@ -7,6 +7,7 @@ import { calculateAvailableBalance } from '../domain/balance'
 import { formatDateTime, formatMoney, maskAccountNumber } from '../domain/statusLabels'
 import { useDemoActions } from '../store/DemoProvider'
 import type { PayoutRequisites, Transaction, TransferRequest } from '../domain/types'
+import { Money } from './Money'
 
 export function DealBalance({
   dealId,
@@ -33,14 +34,15 @@ export function DealBalance({
 
   const requestProblems: string[] = []
   if (amountValue <= 0) requestProblems.push('сумму больше нуля')
-  else if (amountValue > available) requestProblems.push(`сумму не больше доступного баланса (${formatMoney(available)})`)
+  else if (amountValue > available)
+    requestProblems.push(`сумму не больше доступного баланса (${formatMoney(available)})`)
   if (purpose.trim().length === 0) requestProblems.push('цель перевода')
 
   return (
     <section className="grid gap-3 rounded-lg border p-4">
       <div className="flex items-center justify-between text-sm text-muted-foreground">
         <span>Получено от клиента (всего)</span>
-        <span className="font-medium text-foreground">{formatMoney(dealAmount)}</span>
+        <span className="font-medium text-foreground"><Money amount={dealAmount} /></span>
       </div>
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold">
@@ -51,7 +53,7 @@ export function DealBalance({
             </span>
           )}
         </h2>
-        <span className="text-lg font-semibold">{formatMoney(available)}</span>
+        <span className="text-lg font-semibold"><Money amount={available} /></span>
       </div>
       <p className="text-xs text-muted-foreground">
         Вся сумма от клиента удерживается платформой и раскрывается вам траншами. Запросите перевод под
@@ -111,7 +113,7 @@ export function DealBalance({
               <span>
                 {r.purpose} <span className="text-muted-foreground">· {formatDateTime(r.requestedAt)}</span>
               </span>
-              <span className="font-medium">{formatMoney(r.amount)}</span>
+              <span className="font-medium"><Money amount={r.amount} /></span>
             </div>
           ))}
         </div>

@@ -6,8 +6,9 @@ import { CategoryTag } from '../components/CategoryTag'
 import { Card } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { daysSinceLastChange, isDealStalled } from '../domain/attention'
-import { STATUS_LABELS, formatMoney } from '../domain/statusLabels'
+import { STATUS_LABELS } from '../domain/statusLabels'
 import type { Deal, DealStatus, RevisionEntry } from '../domain/types'
+import { Money } from '../components/Money'
 
 // Споры — на первом месте (как и раньше), зависшие сделки без движения — следом, чтобы не
 // требовать от сторон обязательно нажимать «Позвать оператора» самим (раздел 12 PRD, №7).
@@ -81,7 +82,7 @@ export function OperatorDealsList() {
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-1.5">
-                  <div className="font-semibold">{formatMoney(deal.amount)}</div>
+                  <div className="font-semibold"><Money amount={deal.amount} /></div>
                   <StatusBadge status={deal.status} />
                 </div>
               </div>

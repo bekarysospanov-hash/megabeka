@@ -54,11 +54,31 @@ export default {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
+        // Фоновые плашки состояний денег и третий уровень серого из дизайн-спеки
+        'reserve-soft': 'hsl(var(--reserve-soft))',
+        'released-soft': 'hsl(var(--released-soft))',
+        'wait-soft': 'hsl(var(--wait-soft))',
+        'ink-3': 'hsl(var(--ink-3))',
       },
+      fontFamily: {
+        // Golos Text — основной, IBM Plex Mono — все числа, суммы, даты, метки-надзаголовки
+        sans: ['Golos Text', 'system-ui', 'sans-serif'],
+        mono: ['IBM Plex Mono', 'ui-monospace', 'monospace'],
+      },
+      // Скругления запрещены разделом 2 дизайн-спеки: «Все углы прямые, это часть визуального
+      // языка». Переопределяется вся шкала, а не три ступени shadcn: rounded-xl и выше берутся
+      // из дефолтов Tailwind и иначе остаются скруглёнными. Круг (`rounded-full`) сохранён —
+      // он нужен спиннеру и точкам на рельсе, это не скругление прямоугольного блока.
       borderRadius: {
-        lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 2px)',
-        sm: 'calc(var(--radius) - 4px)',
+        none: '0',
+        sm: '0',
+        DEFAULT: '0',
+        md: '0',
+        lg: '0',
+        xl: '0',
+        '2xl': '0',
+        '3xl': '0',
+        full: '9999px',
       },
     },
   },
