@@ -5,6 +5,7 @@ import { StatusBadge } from '../components/StatusBadge'
 import { RevisionDiffList } from '../components/RevisionDiffList'
 import { TransactionList } from '../components/TransactionList'
 import { DisputePanel } from '../components/DisputePanel'
+import { MilestoneList } from '../components/MilestoneList'
 import { DisputeResolutionForm } from '../components/DisputeResolutionForm'
 import { MessageThread } from '../components/MessageThread'
 import { OrderSpecSummary } from '../components/OrderSpecSummary'
@@ -39,7 +40,7 @@ const MANUAL_STATUSES = (Object.keys(STATUS_LABELS) as DealStatus[]).filter(
 export function OperatorDealDetail() {
   const { id } = useParams<{ id: string }>()
   const deal = useDeal(id)
-  const { revisions, transactions, disputes, messages } = useDealHistory(id)
+  const { revisions, transactions, disputes, messages, milestones } = useDealHistory(id)
   const { furnitureMakerVerification } = useDemoState()
   const { freezeDispute, resolveDispute, operatorSetStatus, addMessage } = useDemoActions()
   const [manualStatus, setManualStatus] = useState<DealStatus | ''>('')
@@ -82,6 +83,8 @@ export function OperatorDealDetail() {
       <StepGuidanceCard status={deal.status} actor="operator" />
 
       <OrderSpecSummary deal={deal} />
+
+      <MilestoneList deal={deal} milestones={milestones} role="operator" />
 
       <DisputePanel deal={deal} disputes={disputes} onFreeze={() => freezeDispute(deal.id)} />
 

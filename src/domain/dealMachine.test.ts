@@ -8,7 +8,6 @@ import {
   markProductionDone,
   onboardClient,
   pay,
-  payInterim,
   rejectAct,
   requestRevision,
   requestRevisions,
@@ -32,13 +31,6 @@ const baseInput: CreateDealInput = {
   prepaymentPercent: 50,
   finalPercent: 50,
   commissionPercent: 10,
-}
-
-const INTERIM_INPUT: CreateDealInput = {
-  ...baseInput,
-  prepaymentPercent: 30,
-  interimPercent: 20,
-  finalPercent: 50,
 }
 
 function toAwaitingClient(): Deal {
@@ -71,14 +63,6 @@ function toAwaitingAcceptance(): Deal {
 
 function toActSigning(): Deal {
   return signActByFurnitureMaker(toAwaitingAcceptance(), '7777')
-}
-
-function toInProductionFrom(input: CreateDealInput): Deal {
-  let deal = onboardClient(sendToClient(createDeal(input)), 'Данияр Ахметов', '+77001234567')
-  deal = signByFurnitureMaker(clientAccepts(deal), '5555')
-  deal = signByClientSms(deal, '0000')
-  deal = submitPayment(deal, 'card')
-  return pay(deal).deal
 }
 
 describe('createDeal', () => {
@@ -279,10 +263,15 @@ describe('pay', () => {
     expect(() => pay(toPaymentPending())).toThrow()
   })
 
-  it('создаёт транш предоплаты за вычетом комиссии', () => {
-    const { transaction } = pay(toPaymentProcessing())
-    expect(transaction.type).toBe('prepayment')
-    expect(transaction.amount).toBe(450_000)
+  it('не создаёт транш: деньги раскрываются только после подтверждения этапа (FR-14)', () => {
+    const result = pay(toPaymentProcessing())
+    expect(result).not.toHaveProperty('transaction')
+  })
+
+  it('строит этапы из согласованной схемы траншей', () => {
+    const { milestones } = pay(toPaymentProcessing())
+    expect(milestones.length).toBeGreaterThan(0)
+    expect(milestones.every((m) => m.status === 'planned')).toBe(true)
   })
 
   it('автоматически переводит сделку в in_production', () => {
@@ -424,33 +413,6 @@ describe('rejectAct', () => {
   it('пустая причина сохраняется как null, а не пустая строка', () => {
     const deal = rejectAct(toActSigning(), '   ')
     expect(deal.actRejectionReason).toBeNull()
-  })
-})
-
-describe('payInterim', () => {
-  it('недоступен вне in_production', () => {
-    expect(() => payInterim(toPaymentPending())).toThrow()
-  })
-
-  it('недоступен, если у сделки нет промежуточного платежа (interimPercent = 0)', () => {
-    expect(() => payInterim(toInProduction())).toThrow()
-  })
-
-  it('создаёт транш interim за вычетом комиссии и помечает interimPaidAt', () => {
-    const before = Date.now()
-    const deal = toInProductionFrom(INTERIM_INPUT)
-    const { deal: updated, transaction } = payInterim(deal)
-    expect(transaction.type).toBe('interim')
-    expect(transaction.amount).toBe(180_000)
-    expect(updated.status).toBe('in_production')
-    expect(updated.interimPaidAt).toBeTruthy()
-    expect(new Date(updated.interimPaidAt!).getTime()).toBeGreaterThanOrEqual(before)
-  })
-
-  it('недоступен повторно после того, как промежуточный платёж уже внесён', () => {
-    const deal = toInProductionFrom(INTERIM_INPUT)
-    const { deal: updated } = payInterim(deal)
-    expect(() => payInterim(updated)).toThrow()
   })
 })
 

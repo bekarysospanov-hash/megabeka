@@ -17,7 +17,6 @@ import {
   markProductionDone as markProductionDoneFn,
   onboardClient as onboardClientFn,
   pay as payFn,
-  payInterim as payInterimFn,
   rejectAct as rejectActFn,
   requestRevision as requestRevisionFn,
   requestRevisions as requestRevisionsFn,
@@ -32,13 +31,22 @@ import {
   updateDealSpec as updateDealSpecFn,
 } from '../domain/dealMachine'
 import { validatePaymentSplit } from '../domain/dealLimits'
+import {
+  buildMilestonePayout as buildMilestonePayoutFn,
+  closeFinalMilestone as closeFinalMilestoneFn,
+  confirmMilestone as confirmMilestoneFn,
+  declareMilestone as declareMilestoneFn,
+  rejectMilestone as rejectMilestoneFn,
+} from '../domain/milestones'
 import type { DisputeResolution } from '../domain/disputeResolution'
 import { generateId } from '../domain/id'
 import {
   buildActRejectedNotification,
   buildClientAcceptedNotification,
   buildDealUpdatedNotification,
-  buildInterimPaidNotification,
+  buildMilestoneConfirmedNotification,
+  buildMilestoneDeclaredNotification,
+  buildMilestoneRejectedNotification,
   buildNotificationEvents,
   buildPaymentRetryNotification,
   buildRevisionRequestedNotification,
@@ -59,6 +67,7 @@ import type {
   PayoutRequisites,
   RevisionEntry,
   Transaction,
+  Milestone,
   TransferRequest,
 } from '../domain/types'
 
@@ -77,6 +86,7 @@ interface DemoState {
   notifications: NotificationEvent[]
   furnitureMakerVerification: FurnitureMakerVerification | null
   transferRequests: TransferRequest[]
+  milestones: Milestone[]
 }
 
 function buildSeedState(): DemoState {
@@ -86,12 +96,14 @@ function buildSeedState(): DemoState {
   const transactions: Transaction[] = []
   const disputes: DisputeLog[] = []
   const notifications: NotificationEvent[] = []
+  const milestones: Milestone[] = []
 
   for (const scenario of scenarios) {
     deals[scenario.deal.id] = scenario.deal
     revisions.push(...scenario.revisions)
     transactions.push(...scenario.transactions)
     disputes.push(...scenario.disputes)
+    milestones.push(...scenario.milestones)
     notifications.push(...buildNotificationEvents(scenario.deal.id, scenario.deal.status))
   }
 
@@ -107,6 +119,7 @@ function buildSeedState(): DemoState {
     notifications,
     furnitureMakerVerification: null,
     transferRequests: [],
+    milestones,
   }
 }
 
@@ -128,11 +141,19 @@ function isValidDemoState(value: unknown): value is DemoState {
           typeof (v.payoutRequisites as Record<string, unknown>).bankName === 'string')) &&
       Array.isArray(v.notifications) &&
       (v.furnitureMakerVerification === null || typeof v.furnitureMakerVerification === 'object') &&
-      Array.isArray(v.transferRequests)
+      Array.isArray(v.transferRequests) &&
+      Array.isArray(v.milestones)
     )
   ) {
     return false
   }
+  // У оплаченной сделки этапы обязаны существовать: транш теперь появляется только через
+  // подтверждение этапа, и сделка без них заперла бы деньги мебельщика навсегда.
+  const milestoneDealIds = new Set((v.milestones as { dealId?: string }[]).map((m) => m.dealId))
+  const isPaid = (d: Record<string, unknown>) =>
+    Array.isArray(d.statusHistory) &&
+    (d.statusHistory as { status?: string }[]).some((h) => h.status === 'paid')
+
   return Object.values(v.deals as Record<string, unknown>).every((deal) => {
     const d = deal as Record<string, unknown>
     return (
@@ -150,7 +171,8 @@ function isValidDemoState(value: unknown): value is DemoState {
         d.prepaymentPercent as number,
         (d.interimPercent as number) ?? 0,
         d.finalPercent as number,
-      ).valid
+      ).valid &&
+      (!isPaid(d) || milestoneDealIds.has(d.id as string))
     )
   })
 }
@@ -193,11 +215,13 @@ type Action =
   | { type: 'submitPayment'; dealId: string; method: PaymentMethod }
   | { type: 'pay'; dealId: string }
   | { type: 'markProductionDone'; dealId: string }
+  | { type: 'declareMilestone'; dealId: string; orderNo: number; photos: string[] }
+  | { type: 'confirmMilestone'; dealId: string; orderNo: number }
+  | { type: 'rejectMilestone'; dealId: string; orderNo: number; reason: string }
   | { type: 'signActByFurnitureMaker'; dealId: string; code: string }
   | { type: 'signAct'; dealId: string; code: string; remarks?: string | null }
   | { type: 'autoAcceptDeal'; dealId: string }
   | { type: 'rejectAct'; dealId: string; reason: string }
-  | { type: 'payInterim'; dealId: string }
   | { type: 'callOperator'; dealId: string; openedBy: DisputeLog['openedBy']; reason: string }
   | { type: 'freezeDispute'; dealId: string }
   | { type: 'resolveDispute'; dealId: string; resolution: DisputeResolution }
@@ -211,6 +235,11 @@ type Action =
   | { type: 'markAllNotificationsRead'; role: Actor }
   | { type: 'setFurnitureMakerVerification'; companyName: string; businessId: string; legalAddress: string }
   | { type: 'requestTransfer'; dealId: string; amount: number; purpose: string }
+
+/** Этапы конкретной сделки: в состоянии они лежат общим списком по всем сделкам. */
+function milestonesOf(state: DemoState, dealId: string): Milestone[] {
+  return state.milestones.filter((m) => m.dealId === dealId)
+}
 
 function notify(state: DemoState, dealId: string, status: Deal['status']): NotificationEvent[] {
   return [...state.notifications, ...buildNotificationEvents(dealId, status)]
@@ -334,12 +363,62 @@ function reducer(state: DemoState, action: Action): DemoState {
     }
     case 'pay': {
       const before = state.deals[action.dealId]
-      const { deal, transaction } = payFn(before)
+      const { deal, milestones } = payFn(before)
       return {
         ...state,
         deals: { ...state.deals, [deal.id]: deal },
-        transactions: [...state.transactions, transaction],
+        // Транша здесь нет: деньги удержаны платформой и раскрываются мебельщику только
+        // после того, как он заявит этап, а оператор его подтвердит (FR-14).
+        milestones: [...state.milestones.filter((m) => m.dealId !== deal.id), ...milestones],
         notifications: notifyForTransition(state, before, deal),
+      }
+    }
+    case 'declareMilestone': {
+      const deal = state.deals[action.dealId]
+      const updated = declareMilestoneFn(milestonesOf(state, action.dealId), action.orderNo, action.photos)
+      const declared = updated.find((m) => m.orderNo === action.orderNo)!
+      return {
+        ...state,
+        milestones: [...state.milestones.filter((m) => m.dealId !== deal.id), ...updated],
+        notifications: [
+          ...state.notifications,
+          ...buildMilestoneDeclaredNotification(deal.id, declared.title),
+        ],
+      }
+    }
+    case 'confirmMilestone': {
+      const deal = state.deals[action.dealId]
+      const updated = confirmMilestoneFn(milestonesOf(state, action.dealId), action.orderNo)
+      const confirmed = updated.find((m) => m.orderNo === action.orderNo)!
+      const payout = buildMilestonePayoutFn(deal, confirmed)
+      const paidOutBefore = state.transactions
+        .filter((t) => t.dealId === deal.id)
+        .reduce((sum, t) => sum + t.amount, 0)
+      const heldAfter = deal.amount - paidOutBefore - payout.amount
+      return {
+        ...state,
+        milestones: [...state.milestones.filter((m) => m.dealId !== deal.id), ...updated],
+        // Подтверждение этапа — момент, когда деньги становятся доступны мебельщику (FR-14).
+        transactions: [...state.transactions, payout],
+        // FR-15: клиент видит название этапа, сумму и остаток под защитой, а не типовое
+        // уведомление по статусу, который при подтверждении этапа не меняется.
+        notifications: [
+          ...state.notifications,
+          ...buildMilestoneConfirmedNotification(deal.id, confirmed.title, payout.amount, heldAfter),
+        ],
+      }
+    }
+    case 'rejectMilestone': {
+      const deal = state.deals[action.dealId]
+      const updated = rejectMilestoneFn(milestonesOf(state, action.dealId), action.orderNo, action.reason)
+      const rejected = updated.find((m) => m.orderNo === action.orderNo)!
+      return {
+        ...state,
+        milestones: [...state.milestones.filter((m) => m.dealId !== deal.id), ...updated],
+        notifications: [
+          ...state.notifications,
+          ...buildMilestoneRejectedNotification(deal.id, rejected.title, action.reason),
+        ],
       }
     }
     case 'markProductionDone': {
@@ -365,6 +444,11 @@ function reducer(state: DemoState, action: Action): DemoState {
         ...state,
         deals: { ...state.deals, [deal.id]: deal },
         transactions: [...state.transactions, transaction],
+        // Финальный этап закрывает приёмка, а не заявление мебельщика (7.4).
+        milestones: [
+          ...state.milestones.filter((m) => m.dealId !== deal.id),
+          ...closeFinalMilestoneFn(milestonesOf(state, deal.id)),
+        ],
         notifications: notifyForTransition(state, before, deal),
       }
     }
@@ -382,6 +466,11 @@ function reducer(state: DemoState, action: Action): DemoState {
         ...state,
         deals: { ...state.deals, [deal.id]: deal },
         transactions: [...state.transactions, transaction],
+        // Истечение окна закрывает финальный этап так же, как подпись клиента (7.4).
+        milestones: [
+          ...state.milestones.filter((m) => m.dealId !== deal.id),
+          ...closeFinalMilestoneFn(milestonesOf(state, deal.id)),
+        ],
         notifications: notifyForTransition(state, before, deal),
       }
     }
@@ -392,16 +481,6 @@ function reducer(state: DemoState, action: Action): DemoState {
         ...state,
         deals: { ...state.deals, [deal.id]: deal },
         notifications: [...state.notifications, ...buildActRejectedNotification(deal.id, deal.actRejectionReason)],
-      }
-    }
-    case 'payInterim': {
-      const before = state.deals[action.dealId]
-      const { deal, transaction } = payInterimFn(before)
-      return {
-        ...state,
-        deals: { ...state.deals, [deal.id]: deal },
-        transactions: [...state.transactions, transaction],
-        notifications: [...state.notifications, ...buildInterimPaidNotification(deal.id)],
       }
     }
     case 'callOperator': {
@@ -583,6 +662,9 @@ export function useDealHistory(dealId: string | undefined) {
       messages: state.messages.filter((m) => m.dealId === dealId),
       attachments: state.attachments.filter((a) => a.dealId === dealId),
       transferRequests: state.transferRequests.filter((r) => r.dealId === dealId),
+      milestones: state.milestones
+        .filter((m) => m.dealId === dealId)
+        .sort((a, b) => a.orderNo - b.orderNo),
     }),
     [
       state.revisions,
@@ -590,6 +672,7 @@ export function useDealHistory(dealId: string | undefined) {
       state.disputes,
       state.messages,
       state.attachments,
+      state.milestones,
       state.transferRequests,
       dealId,
     ],
@@ -666,6 +749,20 @@ export function useDemoActions() {
       (dealId: string) => dispatch({ type: 'markProductionDone', dealId }),
       [dispatch],
     ),
+    declareMilestone: useCallback(
+      (dealId: string, orderNo: number, photos: string[]) =>
+        dispatch({ type: 'declareMilestone', dealId, orderNo, photos }),
+      [dispatch],
+    ),
+    confirmMilestone: useCallback(
+      (dealId: string, orderNo: number) => dispatch({ type: 'confirmMilestone', dealId, orderNo }),
+      [dispatch],
+    ),
+    rejectMilestone: useCallback(
+      (dealId: string, orderNo: number, reason: string) =>
+        dispatch({ type: 'rejectMilestone', dealId, orderNo, reason }),
+      [dispatch],
+    ),
     signActByFurnitureMaker: useCallback(
       (dealId: string, code: string) => dispatch({ type: 'signActByFurnitureMaker', dealId, code }),
       [dispatch],
@@ -683,7 +780,6 @@ export function useDemoActions() {
       (dealId: string, reason: string) => dispatch({ type: 'rejectAct', dealId, reason }),
       [dispatch],
     ),
-    payInterim: useCallback((dealId: string) => dispatch({ type: 'payInterim', dealId }), [dispatch]),
     callOperator: useCallback(
       (dealId: string, openedBy: DisputeLog['openedBy'], reason: string) =>
         dispatch({ type: 'callOperator', dealId, openedBy, reason }),

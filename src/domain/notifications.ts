@@ -1,5 +1,6 @@
 import { generateId } from './id'
 import { REVISION_FIELD_LABELS } from './orderSpecLabels'
+import { formatMoney } from './statusLabels'
 import { stepGuidance } from './stepGuidance'
 import type { Actor, DealStatus, NotificationEvent } from './types'
 
@@ -108,6 +109,73 @@ export function buildRevisionRequestedNotification(dealId: string, field: string
 // rejectAct возвращает сделку в in_production, не создавая новый статус — без отдельного
 // билдера мебельщик увидел бы тот же общий текст "оплата получена, изделие в производстве",
 // как будто ничего не произошло, и не узнал бы, что акт отклонён и почему.
+/**
+ * FR-15: клиент уведомляется о подтверждении каждого этапа с названием, суммой транша и
+ * остатком под защитой. Типовое уведомление по статусу здесь не годится — статус сделки не
+ * меняется, и клиент увидел бы дубль «изделие в производстве», из которого не понять, что
+ * часть его денег только что ушла мебельщику.
+ */
+export function buildMilestoneConfirmedNotification(
+  dealId: string,
+  milestoneTitle: string,
+  payoutAmount: number,
+  heldAmount: number,
+): NotificationEvent[] {
+  const at = new Date().toISOString()
+  const base = { dealId, status: 'in_production' as const, at, read: false }
+  return [
+    {
+      ...base,
+      id: generateId(),
+      recipientRole: 'client',
+      text: `Этап «${milestoneTitle}» подтверждён: ${formatMoney(payoutAmount)} переведены производителю, под защитой остаётся ${formatMoney(heldAmount)}`,
+    },
+    {
+      ...base,
+      id: generateId(),
+      recipientRole: 'furniture_maker',
+      text: `Этап «${milestoneTitle}» подтверждён оператором — ${formatMoney(payoutAmount)} доступны к переводу`,
+    },
+  ]
+}
+
+/** FR-14: отклонение этапа с причиной — мебельщик должен понять, что переснять или исправить. */
+export function buildMilestoneRejectedNotification(
+  dealId: string,
+  milestoneTitle: string,
+  reason: string,
+): NotificationEvent[] {
+  return [
+    {
+      dealId,
+      status: 'in_production' as const,
+      at: new Date().toISOString(),
+      read: false,
+      id: generateId(),
+      recipientRole: 'furniture_maker',
+      text: `Этап «${milestoneTitle}» отклонён оператором: «${reason}»`,
+    },
+  ]
+}
+
+/** Заявление этапа: задача оператору на проверку (FR-13). */
+export function buildMilestoneDeclaredNotification(
+  dealId: string,
+  milestoneTitle: string,
+): NotificationEvent[] {
+  return [
+    {
+      dealId,
+      status: 'in_production' as const,
+      at: new Date().toISOString(),
+      read: false,
+      id: generateId(),
+      recipientRole: 'operator',
+      text: `Мебельщик заявил этап «${milestoneTitle}» — проверьте фото и подтвердите`,
+    },
+  ]
+}
+
 export function buildActRejectedNotification(dealId: string, reason: string | null): NotificationEvent[] {
   const at = new Date().toISOString()
   const base = { dealId, status: 'in_production' as const, at, read: false }
@@ -128,7 +196,7 @@ export function buildActRejectedNotification(dealId: string, reason: string | nu
   ]
 }
 
-// payInterim не меняет статус сделки (остаётся in_production) — без отдельного билдера
+// Подтверждение этапа не меняет статус сделки (остаётся in_production) — без отдельного билдера
 // событие вообще не попало бы в центр уведомлений.
 export function buildInterimPaidNotification(dealId: string): NotificationEvent[] {
   const at = new Date().toISOString()

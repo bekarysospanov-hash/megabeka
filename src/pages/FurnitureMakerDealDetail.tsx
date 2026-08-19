@@ -16,6 +16,7 @@ import { StepGuidanceCard } from '../components/StepGuidanceCard'
 import { DealProgressBar } from '../components/DealProgressBar'
 import { DealBalance } from '../components/DealBalance'
 import { PayoutTimeline } from '../components/PayoutTimeline'
+import { MilestoneList } from '../components/MilestoneList'
 import { DealSpecForm } from '../components/DealSpecForm'
 import { BackLink } from '../components/BackLink'
 import { Button } from '@/components/ui/button'
@@ -30,14 +31,13 @@ import { Money } from '../components/Money'
 export function FurnitureMakerDealDetail() {
   const { id } = useParams<{ id: string }>()
   const deal = useDeal(id)
-  const { revisions, transactions, disputes, attachments, transferRequests } = useDealHistory(id)
+  const { revisions, transactions, disputes, attachments, transferRequests, milestones } = useDealHistory(id)
   const { payoutRequisites, deals, transactions: allTransactions } = useDemoState()
   const {
     sendToClient,
     signByFurnitureMaker,
     markProductionDone,
     signActByFurnitureMaker,
-    payInterim,
     setRole,
     updateDeal,
   } = useDemoActions()
@@ -265,17 +265,9 @@ export function FurnitureMakerDealDetail() {
               Клиент отклонил приёмку: «{deal.actRejectionReason}»
             </div>
           )}
-          {deal.status === 'in_production' && deal.interimPercent > 0 && !deal.interimPaidAt && (
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-info/30 bg-info/10 px-3.5 py-2.5 text-sm text-info">
-              <span>
-                Промежуточный транш ({deal.interimPercent}%) уже удерживается платформой — можно запросить
-                доступность в любой момент.
-              </span>
-              <Button size="sm" onClick={() => payInterim(deal.id)}>
-                Запросить доступность транша
-              </Button>
-            </div>
-          )}
+          {/* Кнопка «Запросить доступность транша» убрана вместе с payInterim: промежуточные
+              деньги теперь раскрывает подтверждение соответствующего этапа (FR-14). Оставить
+              оба пути значило бы выплатить один и тот же транш дважды. */}
           <Button className="w-fit" onClick={() => markProductionDone(deal.id)}>
             Отметить готово / передать на приёмку
           </Button>
@@ -337,6 +329,10 @@ export function FurnitureMakerDealDetail() {
           <AttachmentGallery attachments={attachments} />
         </section>
       )}
+
+      {/* Этапы — ключевой ответ на вопрос «когда придут деньги»: транш раскрывается только
+          после подтверждения этапа оператором, поэтому список стоит выше блока денег. */}
+      <MilestoneList deal={deal} milestones={milestones} role="furniture_maker" />
 
       {/* Зона C — деньги */}
       {transactions.length > 0 && (

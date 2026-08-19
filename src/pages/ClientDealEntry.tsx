@@ -13,6 +13,7 @@ import { GuaranteeBanner } from '../components/GuaranteeBanner'
 import { StepGuidanceCard } from '../components/StepGuidanceCard'
 import { DealProgressBar } from '../components/DealProgressBar'
 import { DealMoneyBoard } from '../components/DealMoneyBoard'
+import { MilestoneList } from '../components/MilestoneList'
 import { AcceptanceDeadline } from '../components/AcceptanceDeadline'
 
 import { OfferAgreementNote } from '../components/OfferAgreementNote'
@@ -118,7 +119,7 @@ function ClientOnboarding({ deal }: { deal: Deal }) {
 
 function ClientDealScreen({ dealId }: { dealId: string }) {
   const deal = useDeal(dealId)!
-  const { revisions, disputes, attachments, transactions } = useDealHistory(dealId)
+  const { revisions, disputes, attachments, transactions, milestones } = useDealHistory(dealId)
   const {
     clientAccepts,
     requestRevisions,
@@ -151,6 +152,8 @@ function ClientDealScreen({ dealId }: { dealId: string }) {
       {/* Блок «Деньги» стоит выше блока «Сейчас» сознательно (дизайн-спека, раздел 4):
           первый вопрос клиента — про деньги, а не про процесс. */}
       <DealMoneyBoard deal={deal} transactions={transactions} />
+
+      <MilestoneList deal={deal} milestones={milestones} role="client" />
 
       <StepGuidanceCard status={deal.status} actor="client" />
 

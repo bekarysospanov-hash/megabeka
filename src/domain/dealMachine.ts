@@ -1,5 +1,6 @@
 import { calculateAcceptanceDeadline, isAcceptanceWindowExpired } from './acceptanceWindow'
 import { availableResolutions, remainderForCraftsman, type DisputeResolution } from './disputeResolution'
+import { buildMilestones } from './milestones'
 import { generateId } from './id'
 import type {
   Actor,
@@ -9,6 +10,7 @@ import type {
   DealStatus,
   DisputeLog,
   PaymentMethod,
+  Milestone,
   RevisionEntry,
   Transaction,
 } from './types'
@@ -280,17 +282,17 @@ export function retryPayment(deal: Deal): Deal {
   return withStatus({ ...deal, paymentMethod: null }, 'payment_pending')
 }
 
-export function pay(deal: Deal): { deal: Deal; transaction: Transaction } {
+/**
+ * Оплата клиентом. Транша здесь больше нет: по FR-14 деньги раскрываются мебельщику только
+ * после того, как он заявил этап с фотографиями, а оператор его подтвердил. Раньше предоплата
+ * уходила автоматически в момент оплаты — то есть за работу, которую никто не видел.
+ *
+ * Возвращает этапы, построенные из согласованной схемы траншей (FR-03).
+ */
+export function pay(deal: Deal): { deal: Deal; milestones: Milestone[] } {
   assertStatus(deal, 'payment_processing')
-  const transaction: Transaction = {
-    dealId: deal.id,
-    type: 'prepayment',
-    amount: netAmount(deal, deal.prepaymentPercent),
-    status: 'paid',
-    paidAt: new Date().toISOString(),
-  }
   const advanced = withStatus(withStatus(deal, 'paid'), 'in_production')
-  return { deal: advanced, transaction }
+  return { deal: advanced, milestones: buildMilestones(advanced) }
 }
 
 // Заявление готовности запускает окно приёмки (FR-19): с этого момента у клиента есть
@@ -376,28 +378,6 @@ export function autoAcceptDeal(deal: Deal, now: Date = new Date()): { deal: Deal
 export function rejectAct(deal: Deal, reason: string): Deal {
   assertStatus(deal, 'act_signing')
   return withStatus({ ...deal, actRejectionReason: reason.trim() || null }, 'in_production')
-}
-
-// Промежуточный транш при трёхчастном сплите (interimPercent > 0) — доступен в любой момент
-// производства, не блокирует и не меняет статус сделки (в отличие от pay()/signAct()), поэтому
-// защищён отдельным флагом interimPaidAt, а не переходом по графу статусов.
-export function payInterim(deal: Deal): { deal: Deal; transaction: Transaction } {
-  assertStatus(deal, 'in_production')
-  if (deal.interimPercent <= 0) {
-    throw new Error('У сделки нет промежуточного платежа')
-  }
-  if (deal.interimPaidAt != null) {
-    throw new Error('Промежуточный транш уже открыт')
-  }
-  const paidAt = new Date().toISOString()
-  const transaction: Transaction = {
-    dealId: deal.id,
-    type: 'interim',
-    amount: netAmount(deal, deal.interimPercent),
-    status: 'paid',
-    paidAt,
-  }
-  return { deal: { ...deal, interimPaidAt: paidAt }, transaction }
 }
 
 export function callOperator(

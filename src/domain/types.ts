@@ -107,6 +107,25 @@ export interface Deal {
   removalCostBearer: RemovalCostBearer | null
 }
 
+/** Машина состояний этапа (PRD 7.4). «Выплачен» в прототипе не отдельный статус: факт выплаты несёт Transaction. */
+export type MilestoneStatus = 'planned' | 'declared' | 'confirmed'
+
+export interface Milestone {
+  dealId: string
+  orderNo: number
+  title: string
+  sharePercent: number
+  /** Ровно один истинный на сделку. Финальный этап закрывается приёмкой, а не заявлением */
+  isFinal: boolean
+  status: MilestoneStatus
+  /** FR-13: не менее одной фотографии, иначе оператору нечего проверять */
+  photos: string[]
+  declaredAt: string | null
+  confirmedAt: string | null
+  /** FR-14: обязателен при отклонении */
+  rejectReason: string | null
+}
+
 export interface RevisionEntry {
   // Общий на все поля одного запроса (см. requestRevisions в dealMachine.ts) — по нему
   // группируется история правок, а не по `at`: два отдельных запроса технически могут

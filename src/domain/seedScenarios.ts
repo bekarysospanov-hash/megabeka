@@ -16,7 +16,27 @@ import {
   submitPayment,
 } from './dealMachine'
 import { DEFAULT_COMMISSION_PERCENT } from './dealLimits'
-import type { CreateDealInput, Deal, DisputeLog, RevisionEntry, Transaction } from './types'
+import {
+  buildMilestonePayout,
+  closeFinalMilestone,
+  confirmMilestone,
+  declareMilestone,
+} from './milestones'
+import type { CreateDealInput, Deal, DisputeLog, Milestone, RevisionEntry, Transaction } from './types'
+
+/**
+ * Демо-данные: проводит первый этап через заявление и подтверждение, как это сделали бы
+ * мебельщик и оператор. Транш появляется только здесь — сама оплата клиентом денег
+ * мебельщику больше не раскрывает (FR-14).
+ */
+function settleFirstMilestone(deal: Deal, milestones: Milestone[]) {
+  const declared = declareMilestone(milestones, 1, ['demo-photo'])
+  const confirmed = confirmMilestone(declared, 1)
+  return {
+    milestones: confirmed,
+    transaction: buildMilestonePayout(deal, confirmed[0]),
+  }
+}
 
 export interface DemoScenario {
   key: 'happy' | 'revisions' | 'dispute'
@@ -24,6 +44,7 @@ export interface DemoScenario {
   revisions: RevisionEntry[]
   transactions: Transaction[]
   disputes: DisputeLog[]
+  milestones: Milestone[]
 }
 
 const HAPPY_INPUT: CreateDealInput = {
@@ -61,8 +82,9 @@ function buildHappyScenario(): DemoScenario {
   deal = signByFurnitureMaker(clientAccepts(deal), '0000')
   deal = signByClientSms(deal, '1111')
   deal = submitPayment(deal, 'card')
-  const prepay = pay(deal)
-  deal = markProductionDone(prepay.deal)
+  const paid = pay(deal)
+  const stage1 = settleFirstMilestone(paid.deal, paid.milestones)
+  deal = markProductionDone(paid.deal)
   deal = signActByFurnitureMaker(deal, '9999')
   const final = signAct(deal, '9999')
 
@@ -70,8 +92,9 @@ function buildHappyScenario(): DemoScenario {
     key: 'happy',
     deal: final.deal,
     revisions: [],
-    transactions: [prepay.transaction, final.transaction],
+    transactions: [stage1.transaction, final.transaction],
     disputes: [],
+    milestones: closeFinalMilestone(stage1.milestones),
   }
 }
 
@@ -92,8 +115,9 @@ function buildRevisionsScenario(): DemoScenario {
   deal = signByFurnitureMaker(clientAccepts(deal), '0000')
   deal = signByClientSms(deal, '2222')
   deal = submitPayment(deal, 'card')
-  const prepay = pay(deal)
-  deal = markProductionDone(prepay.deal)
+  const paid = pay(deal)
+  const stage1 = settleFirstMilestone(paid.deal, paid.milestones)
+  deal = markProductionDone(paid.deal)
   deal = signActByFurnitureMaker(deal, '9999')
   const final = signAct(deal, '9999')
 
@@ -101,8 +125,9 @@ function buildRevisionsScenario(): DemoScenario {
     key: 'revisions',
     deal: final.deal,
     revisions: [r1.revision, r2.revision],
-    transactions: [prepay.transaction, final.transaction],
+    transactions: [stage1.transaction, final.transaction],
     disputes: [],
+    milestones: closeFinalMilestone(stage1.milestones),
   }
 }
 
@@ -111,8 +136,9 @@ function buildDisputeScenario(): DemoScenario {
   deal = signByFurnitureMaker(clientAccepts(deal), '0000')
   deal = signByClientSms(deal, '3333')
   deal = submitPayment(deal, 'card')
-  const prepay = pay(deal)
-  deal = prepay.deal
+  const paid = pay(deal)
+  const stage1 = settleFirstMilestone(paid.deal, paid.milestones)
+  deal = paid.deal
 
   const opened = callOperator(deal, 'client', 'задержка сроков изготовления')
   const dispute: DisputeLog = { ...opened.dispute, status: 'resolved' }
@@ -127,8 +153,9 @@ function buildDisputeScenario(): DemoScenario {
     key: 'dispute',
     deal: final.deal,
     revisions: [],
-    transactions: [prepay.transaction, final.transaction],
+    transactions: [stage1.transaction, final.transaction],
     disputes: [dispute],
+    milestones: closeFinalMilestone(stage1.milestones),
   }
 }
 
