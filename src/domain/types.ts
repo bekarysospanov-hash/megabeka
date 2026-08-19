@@ -84,6 +84,10 @@ export interface Deal {
   guaranteeIssuedAt: string
   acceptedWithRemarks: boolean
   acceptanceRemarks: string | null
+  /** Момент истечения окна приёмки, 3 рабочих дня по календарю РК (FR-20) */
+  acceptanceDeadline: string | null
+  /** Заполнен, если заказ принят по истечении срока, а не подписью клиента (FR-22) */
+  autoAcceptedAt: string | null
   actRejectionReason: string | null
   interimPaidAt: string | null
   cancellationReason: string | null

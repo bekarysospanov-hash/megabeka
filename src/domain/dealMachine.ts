@@ -1,3 +1,4 @@
+import { calculateAcceptanceDeadline, isAcceptanceWindowExpired } from './acceptanceWindow'
 import { generateId } from './id'
 import type {
   Actor,
@@ -164,6 +165,8 @@ export function createDeal(input: CreateDealInput): Deal {
     guaranteeIssuedAt: new Date().toISOString(),
     acceptedWithRemarks: false,
     acceptanceRemarks: null,
+    acceptanceDeadline: null,
+    autoAcceptedAt: null,
     actRejectionReason: null,
     interimPaidAt: null,
     cancellationReason: null,
@@ -281,9 +284,15 @@ export function pay(deal: Deal): { deal: Deal; transaction: Transaction } {
   return { deal: advanced, transaction }
 }
 
+// Заявление готовности запускает окно приёмки (FR-19): с этого момента у клиента есть
+// 3 рабочих дня по календарю РК, после которых заказ считается принятым (FR-22).
 export function markProductionDone(deal: Deal): Deal {
   assertStatus(deal, 'in_production')
-  return withStatus(deal, 'awaiting_acceptance')
+  const declaredAt = new Date().toISOString()
+  return withStatus(
+    { ...deal, acceptanceDeadline: calculateAcceptanceDeadline(declaredAt) },
+    'awaiting_acceptance',
+  )
 }
 
 export function signActByFurnitureMaker(deal: Deal, _code: string): Deal {
@@ -310,6 +319,42 @@ export function signAct(
       { ...deal, acceptedWithRemarks: trimmedRemarks !== null, acceptanceRemarks: trimmedRemarks },
       'act_signed',
     ),
+    'completed',
+  )
+  return { deal: completed, transaction }
+}
+
+/**
+ * Авто-приёмка по истечении окна (FR-22). Необратимо двигает деньги в пользу мебельщика без
+ * действия клиента, поэтому условий три и все проверяются здесь, а не в UI:
+ *  — сделка действительно в окне приёмки (спор из него уже вывел бы её в dispute_open);
+ *  — срок проставлен и истёк;
+ *  — подписи клиента нет, основанием служит именно истечение срока.
+ *
+ * Акт остаётся подписанным только мебельщиком: отметка «принято по истечении срока» — отдельное
+ * основание, а не подделанная подпись клиента.
+ */
+export function autoAcceptDeal(deal: Deal, now: Date = new Date()): { deal: Deal; transaction: Transaction } {
+  assertStatusOneOf(deal, ['awaiting_acceptance', 'act_signing'])
+  if (!deal.acceptanceDeadline) {
+    throw new Error('Авто-приёмка невозможна: срок окна приёмки не проставлен')
+  }
+  if (!isAcceptanceWindowExpired(deal.acceptanceDeadline, now)) {
+    throw new Error('Авто-приёмка невозможна: срок окна приёмки ещё не истёк')
+  }
+
+  // Момент приёмки — это `now`, а не реальное «сейчас»: иначе при промотке срока в демо
+  // отметка и транш датировались бы раньше дедлайна, который служит для них основанием.
+  const acceptedAt = now.toISOString()
+  const transaction: Transaction = {
+    dealId: deal.id,
+    type: 'final',
+    amount: netAmount(deal, deal.finalPercent),
+    status: 'paid',
+    paidAt: acceptedAt,
+  }
+  const completed = withStatus(
+    withStatus({ ...deal, autoAcceptedAt: acceptedAt }, 'act_signed'),
     'completed',
   )
   return { deal: completed, transaction }
@@ -380,7 +425,22 @@ export function resolveDispute(deal: Deal): Deal {
   if (!deal.previousStatus) {
     throw new Error('Нет статуса для возврата: previousStatus не задан')
   }
-  const restored = withStatus({ ...deal, frozen: false }, deal.previousStatus)
+  // Разбор спора съедает окно приёмки: к моменту возврата срок обычно уже истёк, и
+  // авто-приёмка сработала бы в ту же секунду — деньги ушли бы мебельщику раньше, чем клиент
+  // увидит результат разбора. Окно запускается заново на полные 3 рабочих дня, тем же
+  // правилом, что FR-22 задаёт для отсчёта, остановленного недоставленным уведомлением.
+  const returnsToAcceptanceWindow =
+    deal.previousStatus === 'awaiting_acceptance' || deal.previousStatus === 'act_signing'
+  const restored = withStatus(
+    {
+      ...deal,
+      frozen: false,
+      acceptanceDeadline: returnsToAcceptanceWindow
+        ? calculateAcceptanceDeadline(new Date().toISOString())
+        : deal.acceptanceDeadline,
+    },
+    deal.previousStatus,
+  )
   return { ...restored, previousStatus: null }
 }
 

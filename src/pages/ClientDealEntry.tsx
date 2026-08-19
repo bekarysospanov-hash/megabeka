@@ -13,6 +13,7 @@ import { GuaranteeBanner } from '../components/GuaranteeBanner'
 import { StepGuidanceCard } from '../components/StepGuidanceCard'
 import { DealProgressBar } from '../components/DealProgressBar'
 import { DealMoneyBoard } from '../components/DealMoneyBoard'
+import { AcceptanceDeadline } from '../components/AcceptanceDeadline'
 import { OfferAgreementNote } from '../components/OfferAgreementNote'
 import { ProductionTimer } from '../components/ProductionTimer'
 import { RevisionRequestForm } from '../components/RevisionRequestForm'
@@ -22,7 +23,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { generateActText, generateContractText } from '../domain/contractTemplate'
-import { formatMoney } from '../domain/statusLabels'
+import { formatDateTime, formatMoney } from '../domain/statusLabels'
 import type { Deal } from '../domain/types'
 import { Money } from '../components/Money'
 
@@ -123,9 +124,11 @@ function ClientDealScreen({ dealId }: { dealId: string }) {
     retryPayment,
     signAct,
     rejectAct,
+    autoAcceptDeal,
     addAttachment,
   } = useDemoActions()
 
+  const finalAmount = Math.round((deal.amount * deal.finalPercent) / 100)
   const [showRevisionForm, setShowRevisionForm] = useState(false)
   const [acceptanceRemarks, setAcceptanceRemarks] = useState('')
 
@@ -242,10 +245,13 @@ function ClientDealScreen({ dealId }: { dealId: string }) {
       )}
 
       {deal.status === 'awaiting_acceptance' && (
-        <p className="text-sm text-muted-foreground">
-          Мебельщик готовит акт приёма-передачи. Как только он подпишет — вы сможете подписать со своей
-          стороны.
-        </p>
+        <div className="grid gap-3">
+          <p className="text-sm text-muted-foreground">
+            Мебельщик готовит акт приёма-передачи. Как только он подпишет — вы сможете подписать со своей
+            стороны.
+          </p>
+          <AcceptanceDeadline deal={deal} finalAmount={finalAmount} />
+        </div>
       )}
 
       {deal.status === 'act_signing' && (
@@ -279,12 +285,35 @@ function ClientDealScreen({ dealId }: { dealId: string }) {
               Чтобы отклонить приёмку, опишите причину в комментарии выше.
             </p>
           )}
+          <AcceptanceDeadline deal={deal} finalAmount={finalAmount} />
+          <DemoModeBanner>
+            Отсчёт окна приёмки идёт по реальному времени — для показа его можно промотать.
+            <button
+              type="button"
+              className="ml-1 underline underline-offset-2"
+              onClick={() => autoAcceptDeal(deal.id)}
+            >
+              Демо: срок истёк
+            </button>
+          </DemoModeBanner>
         </div>
       )}
 
-      {deal.status === 'completed' && (
-        <p className="text-sm font-semibold text-success">Сделка завершена. Спасибо за заказ!</p>
-      )}
+      {deal.status === 'completed' &&
+        (deal.autoAcceptedAt ? (
+          // FR-22: основание — истечение срока, а не подпись клиента. Показываем это прямо,
+          // а не выдаём за приёмку, которой человек не совершал.
+          <div className="grid gap-1.5 border border-border bg-card p-4">
+            <p className="text-sm font-semibold">Работа принята автоматически</p>
+            <p className="text-[13px] text-muted-foreground">
+              Вы не подписали акт до {formatDateTime(deal.acceptanceDeadline ?? deal.autoAcceptedAt)}, поэтому
+              заказ считается принятым, а оставшаяся часть суммы переведена производителю. Если у вас
+              есть претензии к работе, свяжитесь с менеджером.
+            </p>
+          </div>
+        ) : (
+          <p className="text-sm font-semibold text-success">Сделка завершена. Спасибо за заказ!</p>
+        ))}
 
       {deal.status === 'cancelled_refunded' && (
         <p className="text-sm font-semibold text-destructive">Сделка отменена, деньги возвращены (демо).</p>

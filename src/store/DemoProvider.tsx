@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react'
 import {
+  autoAcceptDeal as autoAcceptDealFn,
   callOperator as callOperatorFn,
   cancelDeal as cancelDealFn,
   clientAccepts as clientAcceptsFn,
@@ -139,6 +140,10 @@ function isValidDemoState(value: unknown): value is DemoState {
       typeof d.acceptedWithRemarks === 'boolean' &&
       Array.isArray(d.specialMechanisms) &&
       Array.isArray(d.appliances) &&
+      // Поля окна приёмки: без них блок «Если ничего не делать» молча не отрисуется, а
+      // авто-приёмка откажется работать — сохранённое до их появления состояние отбрасываем.
+      'acceptanceDeadline' in d &&
+      'autoAcceptedAt' in d &&
       // Схема траншей, сохранённая до введения потолка FR-04 (например, 30/30/40), иначе
       // пережила бы обновление и показала бы на демонстрации запрещённый продуктом сплит.
       validatePaymentSplit(
@@ -190,6 +195,7 @@ type Action =
   | { type: 'markProductionDone'; dealId: string }
   | { type: 'signActByFurnitureMaker'; dealId: string; code: string }
   | { type: 'signAct'; dealId: string; code: string; remarks?: string | null }
+  | { type: 'autoAcceptDeal'; dealId: string }
   | { type: 'rejectAct'; dealId: string; reason: string }
   | { type: 'payInterim'; dealId: string }
   | { type: 'callOperator'; dealId: string; openedBy: Actor; reason: string }
@@ -356,6 +362,23 @@ function reducer(state: DemoState, action: Action): DemoState {
     case 'signAct': {
       const before = state.deals[action.dealId]
       const { deal, transaction } = signActFn(before, action.code, action.remarks)
+      return {
+        ...state,
+        deals: { ...state.deals, [deal.id]: deal },
+        transactions: [...state.transactions, transaction],
+        notifications: notifyForTransition(state, before, deal),
+      }
+    }
+    case 'autoAcceptDeal': {
+      const before = state.deals[action.dealId]
+      // Демо-механика: ждать три рабочих дня на показе нельзя, поэтому вперёд проматывается
+      // «сейчас», а не срок сделки. Подменять acceptanceDeadline нельзя — карточка потом
+      // показала бы клиенту неверную дату, до которой он якобы не подписал акт.
+      // Управление остаётся у демонстратора: автотаймера нет, как и у оплаты.
+      const afterDeadline = before.acceptanceDeadline
+        ? new Date(new Date(before.acceptanceDeadline).getTime() + 1000)
+        : new Date()
+      const { deal, transaction } = autoAcceptDealFn(before, afterDeadline)
       return {
         ...state,
         deals: { ...state.deals, [deal.id]: deal },
@@ -647,6 +670,10 @@ export function useDemoActions() {
     ),
     signActByFurnitureMaker: useCallback(
       (dealId: string, code: string) => dispatch({ type: 'signActByFurnitureMaker', dealId, code }),
+      [dispatch],
+    ),
+    autoAcceptDeal: useCallback(
+      (dealId: string) => dispatch({ type: 'autoAcceptDeal', dealId }),
       [dispatch],
     ),
     signAct: useCallback(
