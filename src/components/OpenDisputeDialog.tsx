@@ -13,7 +13,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { useDemoActions } from '../store/DemoProvider'
-import type { Actor } from '../domain/types'
+import type { DisputeLog } from '../domain/types'
 import { cn } from '@/lib/utils'
 
 /**
@@ -35,7 +35,7 @@ const REASONS = [
  * Подтверждения одноразовым кодом (FR-43) в прототипе нет сознательно — SMS-контур в демо
  * не воспроизводится, см. корзину «не тащим в прототип» в docs/AUDIT-prototype-vs-prd.md.
  */
-export function OpenDisputeDialog({ dealId, actor }: { dealId: string; actor: Actor }) {
+export function OpenDisputeDialog({ dealId, actor }: { dealId: string; actor: DisputeLog['openedBy'] }) {
   const { callOperator } = useDemoActions()
   const [reason, setReason] = useState<string>('')
   const [details, setDetails] = useState('')

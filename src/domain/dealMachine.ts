@@ -402,7 +402,7 @@ export function payInterim(deal: Deal): { deal: Deal; transaction: Transaction }
 
 export function callOperator(
   deal: Deal,
-  openedBy: Actor,
+  openedBy: DisputeLog['openedBy'],
   reason: string,
 ): { deal: Deal; dispute: DisputeLog } {
   if (!ESCALATABLE_STATUSES.includes(deal.status)) {

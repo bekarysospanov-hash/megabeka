@@ -135,7 +135,12 @@ export interface Transaction {
 
 export interface DisputeLog {
   dealId: string
-  openedBy: Actor
+  /**
+   * Ровно два значения (PRD 9.2): спор открывает клиент или система по просрочке (FR-30).
+   * Ни мебельщик, ни оператор такого права не имеют — тип это запрещает, а не полагается
+   * на дисциплину вызывающего.
+   */
+  openedBy: 'client' | 'system'
   reason: string
   status: 'open' | 'resolved'
 }

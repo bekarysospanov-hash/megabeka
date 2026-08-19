@@ -198,7 +198,7 @@ type Action =
   | { type: 'autoAcceptDeal'; dealId: string }
   | { type: 'rejectAct'; dealId: string; reason: string }
   | { type: 'payInterim'; dealId: string }
-  | { type: 'callOperator'; dealId: string; openedBy: Actor; reason: string }
+  | { type: 'callOperator'; dealId: string; openedBy: DisputeLog['openedBy']; reason: string }
   | { type: 'freezeDispute'; dealId: string }
   | { type: 'resolveDispute'; dealId: string; resolution: DisputeResolution }
   | { type: 'cancelDeal'; dealId: string; actor: Actor; reason: string }
@@ -685,7 +685,7 @@ export function useDemoActions() {
     ),
     payInterim: useCallback((dealId: string) => dispatch({ type: 'payInterim', dealId }), [dispatch]),
     callOperator: useCallback(
-      (dealId: string, openedBy: Actor, reason: string) =>
+      (dealId: string, openedBy: DisputeLog['openedBy'], reason: string) =>
         dispatch({ type: 'callOperator', dealId, openedBy, reason }),
       [dispatch],
     ),
