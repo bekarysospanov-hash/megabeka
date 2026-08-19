@@ -121,7 +121,6 @@ describe('updateDealSpec', () => {
       contactPhone: '+77009998877',
       category: 'upholstered',
       hasUpholstery: true,
-      widthCm: 200,
       heightMm: 900,
       depthMm: 1000,
       lengthMm: null,
@@ -136,7 +135,6 @@ describe('updateDealSpec', () => {
     expect(deal.contactName).toBe('Айгерим')
     expect(deal.category).toBe('upholstered')
     expect(deal.hasUpholstery).toBe(true)
-    expect(deal.widthCm).toBe(200)
     expect(deal.facadeColor).toBe('серый велюр')
     expect(deal.estimatedProductionDays).toBe(21)
     expect(deal.status).toBe('draft')

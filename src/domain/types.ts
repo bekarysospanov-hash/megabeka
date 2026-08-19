@@ -56,7 +56,6 @@ export interface Deal {
   categoryCustom: string | null
   hasUpholstery: boolean
   configuration: string | null
-  widthCm: number | null
   heightMm: number | null
   depthMm: number | null
   lengthMm: number | null
@@ -182,7 +181,6 @@ export interface CreateDealInput {
   categoryCustom?: string | null
   hasUpholstery?: boolean
   configuration?: string | null
-  widthCm?: number | null
   heightMm?: number | null
   depthMm?: number | null
   lengthMm?: number | null
