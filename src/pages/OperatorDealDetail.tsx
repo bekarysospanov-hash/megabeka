@@ -6,6 +6,7 @@ import { RevisionDiffList } from '../components/RevisionDiffList'
 import { TransactionList } from '../components/TransactionList'
 import { DisputePanel } from '../components/DisputePanel'
 import { MilestoneList } from '../components/MilestoneList'
+import { ApprovalPanel } from '../components/ApprovalPanel'
 import { DisputeResolutionForm } from '../components/DisputeResolutionForm'
 import { MessageThread } from '../components/MessageThread'
 import { OrderSpecSummary } from '../components/OrderSpecSummary'
@@ -81,6 +82,8 @@ export function OperatorDealDetail() {
       )}
 
       <StepGuidanceCard status={deal.status} actor="operator" />
+
+      <ApprovalPanel deal={deal} />
 
       <OrderSpecSummary deal={deal} />
 

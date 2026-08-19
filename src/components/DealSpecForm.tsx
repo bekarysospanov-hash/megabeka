@@ -153,11 +153,12 @@ export function DealSpecForm({
   // через форму правок она может прийти и в согласовании.
   const splitValidation = validatePaymentSplit(prepaymentPercent, interimPercent, finalPercent)
   const overDealLimit = Number(amount) > 0 && exceedsDealAmountLimit(Number(amount))
-  const canSubmit =
-    title.trim().length > 0 &&
-    Number(amount) > 0 &&
-    contactPhone.trim().length > 0 &&
-    splitValidation.valid
+  const missingForSubmit = [
+    title.trim().length === 0 && 'название заказа',
+    Number(amount) > 0 ? null : 'сумму сделки',
+    contactPhone.trim().length === 0 && 'телефон клиента',
+  ].filter((item): item is string => typeof item === 'string')
+  const canSubmit = missingForSubmit.length === 0 && splitValidation.valid
   const showApplianceSection = category != null && APPLIANCE_RELEVANT_CATEGORIES.includes(category)
   const showCountertop = category != null && COUNTERTOP_RELEVANT_CATEGORIES.includes(category)
 
@@ -492,6 +493,14 @@ export function DealSpecForm({
           </div>
         </div>
       </FormSection>
+
+      {/* Кнопка не должна гаснуть молча: без причины человек ищет ошибку наугад и чаще
+          всего уходит со страницы. Тот же дефект уже чинили в этом проекте однажды. */}
+      {!canSubmit && missingForSubmit.length > 0 && (
+        <p className="text-sm text-warning">
+          Чтобы сохранить, заполните: {missingForSubmit.join(', ')}.
+        </p>
+      )}
 
       <Button type="submit" disabled={!canSubmit} className="w-fit">
         {submitLabel}

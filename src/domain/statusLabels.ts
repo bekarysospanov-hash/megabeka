@@ -3,6 +3,7 @@ import type { DealStatus } from './types'
 export const STATUS_LABELS: Record<DealStatus, string> = {
   draft: 'Черновик',
   awaiting_client: 'Ждём клиента',
+  pending_approval: 'Ожидает одобрения',
   negotiation: 'Согласование условий',
   contract_signing: 'Подписание договора',
   contract_signed: 'Договор подписан',
@@ -25,6 +26,7 @@ export type StatusTone = 'neutral' | 'info' | 'warning' | 'success' | 'danger'
 export const STATUS_TONES: Record<DealStatus, StatusTone> = {
   draft: 'neutral',
   awaiting_client: 'neutral',
+  pending_approval: 'warning',
   negotiation: 'info',
   contract_signing: 'info',
   contract_signed: 'info',

@@ -12,7 +12,10 @@ import {
   callOperator as callOperatorFn,
   cancelDeal as cancelDealFn,
   clientAccepts as clientAcceptsFn,
+  approveDeal as approveDealFn,
   createDeal as createDealFn,
+  rejectApproval as rejectApprovalFn,
+  requireApproval as requireApprovalFn,
   freezeDispute as freezeDisputeFn,
   markProductionDone as markProductionDoneFn,
   onboardClient as onboardClientFn,
@@ -194,6 +197,9 @@ type Action =
   | { type: 'createDeal'; input: CreateDealInput }
   | { type: 'updateDeal'; dealId: string; input: DealSpecInput }
   | { type: 'sendToClient'; dealId: string }
+  | { type: 'approveDeal'; dealId: string }
+  | { type: 'rejectApproval'; dealId: string; reason: string }
+  | { type: 'requireApproval'; dealId: string }
   | { type: 'onboardClient'; dealId: string; name: string; phone: string }
   | { type: 'clientAccepts'; dealId: string }
   | {
@@ -286,6 +292,33 @@ function reducer(state: DemoState, action: Action): DemoState {
         ...state,
         deals: { ...state.deals, [deal.id]: deal },
         notifications: notify(state, deal.id, deal.status),
+      }
+    }
+    case 'approveDeal': {
+      const before = state.deals[action.dealId]
+      const deal = approveDealFn(before)
+      return {
+        ...state,
+        deals: { ...state.deals, [deal.id]: deal },
+        notifications: notifyForTransition(state, before, deal),
+      }
+    }
+    case 'rejectApproval': {
+      const before = state.deals[action.dealId]
+      const deal = rejectApprovalFn(before, action.reason)
+      return {
+        ...state,
+        deals: { ...state.deals, [deal.id]: deal },
+        notifications: notifyForTransition(state, before, deal),
+      }
+    }
+    case 'requireApproval': {
+      const before = state.deals[action.dealId]
+      const deal = requireApprovalFn(before)
+      return {
+        ...state,
+        deals: { ...state.deals, [deal.id]: deal },
+        notifications: notifyForTransition(state, before, deal),
       }
     }
     case 'onboardClient': {
@@ -706,6 +739,15 @@ export function useDemoActions() {
     ),
     sendToClient: useCallback(
       (dealId: string) => dispatch({ type: 'sendToClient', dealId }),
+      [dispatch],
+    ),
+    approveDeal: useCallback((dealId: string) => dispatch({ type: 'approveDeal', dealId }), [dispatch]),
+    rejectApproval: useCallback(
+      (dealId: string, reason: string) => dispatch({ type: 'rejectApproval', dealId, reason }),
+      [dispatch],
+    ),
+    requireApproval: useCallback(
+      (dealId: string) => dispatch({ type: 'requireApproval', dealId }),
       [dispatch],
     ),
     onboardClient: useCallback(

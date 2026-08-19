@@ -10,7 +10,8 @@ export const PROGRESS_STAGES: ProgressStage[] = [
   {
     key: 'negotiation',
     label: 'Согласование',
-    statuses: ['draft', 'awaiting_client', 'negotiation'],
+    // Одобрение оператора происходит до того, как клиент увидит сделку, — та же стадия.
+    statuses: ['draft', 'awaiting_client', 'pending_approval', 'negotiation'],
   },
   {
     key: 'signing',

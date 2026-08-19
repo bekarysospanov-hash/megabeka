@@ -3,6 +3,8 @@ import type { DisputeResolutionKind, ItemFate, RemovalCostBearer } from './dispu
 export type DealStatus =
   | 'draft'
   | 'awaiting_client'
+  /** Сумма сверх лимита требует одобрения оператора до отправки клиенту (FR-44) */
+  | 'pending_approval'
   | 'negotiation'
   | 'contract_signing'
   | 'contract_signed'
@@ -95,6 +97,8 @@ export interface Deal {
   interimPaidAt: string | null
   cancellationReason: string | null
   cancelledBy: Actor | null
+  /** Причина отказа оператора в одобрении сверхлимитной сделки (FR-44) */
+  approvalRejectReason: string | null
   /** Исход последнего разрешённого спора (FR-26) */
   disputeResolution: DisputeResolutionKind | null
   /** Сумма возврата клиенту — вводит арбитр, система её не вычисляет (16.2 п.18) */

@@ -1,4 +1,5 @@
 import { calculateAcceptanceDeadline, isAcceptanceWindowExpired } from './acceptanceWindow'
+import { exceedsDealAmountLimit } from './dealLimits'
 import { availableResolutions, remainderForCraftsman, type DisputeResolution } from './disputeResolution'
 import { buildMilestones } from './milestones'
 import { generateId } from './id'
@@ -42,6 +43,8 @@ export const ESCALATABLE_STATUSES: DealStatus[] = [
 export const CANCELLABLE_STATUSES: DealStatus[] = [
   'draft',
   'awaiting_client',
+  // Ожидание одобрения — тоже до денег: мебельщик вправе закрыть сделку, не дожидаясь решения.
+  'pending_approval',
   'negotiation',
   'contract_signing',
   'contract_signed',
@@ -176,6 +179,7 @@ export function createDeal(input: CreateDealInput): Deal {
     interimPaidAt: null,
     cancellationReason: null,
     cancelledBy: null,
+    approvalRejectReason: null,
     disputeResolution: null,
     refundAmount: null,
     reservePayoutAmount: null,
@@ -196,9 +200,55 @@ export function updateDealSpec(deal: Deal, input: DealSpecInput): Deal {
   }
 }
 
+/**
+ * Отправка клиенту одним действием; дальнейший маршрут определяется лимитом (FR-06).
+ * Сумма сверх лимита не запрещена — она требует одобрения оператора (FR-36, FR-44).
+ */
 export function sendToClient(deal: Deal): Deal {
   assertStatus(deal, 'draft')
+  if (exceedsDealAmountLimit(deal.amount)) {
+    return withStatus({ ...deal, approvalRejectReason: null }, 'pending_approval')
+  }
   return withStatus(deal, 'awaiting_client')
+}
+
+/**
+ * FR-52: правка в торге подняла сумму выше лимита — сделка уходит на одобрение, а не
+ * остаётся в согласовании без проверки. Согласие клиента сбрасывается: условия изменились.
+ */
+export function requireApproval(deal: Deal): Deal {
+  assertStatus(deal, 'negotiation')
+  return withStatus(
+    { ...deal, clientAccepted: false, approvalRejectReason: null },
+    'pending_approval',
+  )
+}
+
+/**
+ * Куда вернуть сделку с одобрения. FR-44: «туда, откуда пришла» — из первой отправки в
+ * черновик, из правки в торге в согласование. Источник берётся из истории статусов, чтобы
+ * не заводить отдельное поле, которое пришлось бы поддерживать в каждом переходе.
+ */
+function approvalOrigin(deal: Deal): DealStatus {
+  const beforeApproval = [...deal.statusHistory]
+    .reverse()
+    .find((entry) => entry.status !== 'pending_approval')
+  return beforeApproval?.status === 'negotiation' ? 'negotiation' : 'draft'
+}
+
+/** FR-44: оператор одобряет сверхлимитную сделку — она продолжает путь. */
+export function approveDeal(deal: Deal): Deal {
+  assertStatus(deal, 'pending_approval')
+  return withStatus(deal, approvalOrigin(deal) === 'negotiation' ? 'negotiation' : 'awaiting_client')
+}
+
+/** FR-44: отклонение с обязательным комментарием — мебельщик должен понять причину. */
+export function rejectApproval(deal: Deal, reason: string): Deal {
+  assertStatus(deal, 'pending_approval')
+  if (!reason.trim()) {
+    throw new Error('Укажите причину отказа: без комментария мебельщик не поймёт, что менять')
+  }
+  return withStatus({ ...deal, approvalRejectReason: reason.trim() }, approvalOrigin(deal))
 }
 
 export function onboardClient(deal: Deal, name: string, phone: string): Deal {

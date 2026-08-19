@@ -23,7 +23,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { dealToSpecInput } from '../domain/dealMachine'
 import { generateActText, generateContractText } from '../domain/contractTemplate'
-import { calculateGuaranteeReserve } from '../domain/guaranteeReserve'
+import { calculateGuaranteeReserve, dealRiskAmount, fitsInReserve } from '../domain/guaranteeReserve'
 import { DEAL_AMOUNT_LIMIT, exceedsDealAmountLimit } from '../domain/dealLimits'
 import { formatDate, formatMoney } from '../domain/statusLabels'
 import { Money } from '../components/Money'
@@ -38,6 +38,7 @@ export function FurnitureMakerDealDetail() {
     signByFurnitureMaker,
     markProductionDone,
     signActByFurnitureMaker,
+    requireApproval,
     setRole,
     updateDeal,
   } = useDemoActions()
@@ -51,17 +52,28 @@ export function FurnitureMakerDealDetail() {
   // Резерв гарантии актуален только пока сделка не отправлена — не считаем его на каждый
   // рендер для сделок в остальных статусах.
   const missingRequisites = deal.status === 'draft' && !payoutRequisites
-  // Экспозиция резерва (FR-38) — это уже выплаченные транши по всем активным сделкам, а не
-  // сумма этой сделки: пока деньги не ушли мебельщику, резерв платформы не под риском.
-  const availableReserve =
+  // Проверка резерва идёт ДО отправки: помещается ли риск этой сделки в остаток покрытия
+  // (FR-38). Реактивная проверка «остаток уже исчерпан» пропускала бы сделку, пока по ней
+  // нет выплат, и резерв пробивался бы позже — в момент, когда отказать уже нельзя.
+  const reserveExceeded =
+    deal.status === 'draft' &&
+    !fitsInReserve(
+      Object.values(deals).filter((d) => d.id !== deal.id),
+      allTransactions,
+      deal.amount,
+      deal.prepaymentPercent + deal.interimPercent,
+    )
+  const reserveShortfall =
     deal.status === 'draft'
-      ? calculateGuaranteeReserve(Object.values(deals), allTransactions).available
+      ? dealRiskAmount(deal) -
+        calculateGuaranteeReserve(
+          Object.values(deals).filter((d) => d.id !== deal.id),
+          allTransactions,
+        ).available
       : 0
-  const reserveExceeded = deal.status === 'draft' && availableReserve <= 0
-  // FR-36: сумма сверх лимита не запрещена, а требует одобрения оператора (FR-44). Состояния
-  // «Ожидает одобрения» и самого действия одобрения в прототипе пока нет, поэтому отправку
-  // здесь НЕ блокируем: иначе сделка встанет намертво — одобрить её было бы некому, и
-  // единственным выходом осталась бы правка суммы вниз. Предупреждение показываем.
+  // FR-36: сумма сверх лимита не запрещена, а требует одобрения оператора (FR-44). Отправку
+  // не блокируем — sendToClient сам направит такую сделку не клиенту, а на одобрение.
+  // Предупреждение показываем заранее, чтобы это не было сюрпризом.
   const overDealLimit = deal.status === 'draft' && exceedsDealAmountLimit(deal.amount)
   const sendBlocked = missingRequisites || reserveExceeded
   // Последовательные шаги вместо стопки баннеров разом — на draft показываем ровно одно
@@ -108,14 +120,20 @@ export function FurnitureMakerDealDetail() {
           )}
           {nextRequirement === 'reserve' && (
             <p className="text-sm text-warning">
-              Резерв гарантии исчерпан: выплаты по активным сделкам исчерпали покрытие. Приём новых сделок
-              приостановлен до освобождения резерва.
+              Не хватает покрытия гарантии: этой сделке нужно {formatMoney(dealRiskAmount(deal))}, а
+              свободно меньше на {formatMoney(Math.max(0, reserveShortfall))}. Отправка станет доступна,
+              когда завершатся идущие сделки.
             </p>
           )}
           {nextRequirement === 'approval' && (
             <p className="text-sm text-warning">
-              Сумма сделки выше {formatMoney(DEAL_AMOUNT_LIMIT)} — по регламенту такие сделки проходят
-              одобрение оператора. Согласуйте её с оператором перед отправкой.
+              Сумма сделки выше {formatMoney(DEAL_AMOUNT_LIMIT)} — при отправке она уйдёт на одобрение
+              оператора, а не сразу клиенту.
+            </p>
+          )}
+          {deal.approvalRejectReason && (
+            <p className="text-sm text-destructive">
+              Оператор отклонил отправку: «{deal.approvalRejectReason}»
             </p>
           )}
 
@@ -129,6 +147,16 @@ export function FurnitureMakerDealDetail() {
             <ContractPreviewDialog deal={deal} />
             <CancelDealDialog dealId={deal.id} actor="furniture_maker" triggerLabel="Закрыть без подписания" />
           </div>
+        </div>
+      )}
+
+      {deal.status === 'pending_approval' && (
+        <div className="grid gap-3">
+          <p className="text-sm">
+            Сделка отправлена на одобрение оператора: её сумма выше лимита, при котором отправка
+            идёт напрямую клиенту. Как только оператор одобрит, ссылка уйдёт клиенту автоматически.
+          </p>
+          <CancelDealDialog dealId={deal.id} actor="furniture_maker" triggerLabel="Закрыть без подписания" />
         </div>
       )}
 
@@ -171,17 +199,15 @@ export function FurnitureMakerDealDetail() {
                 initial={dealToSpecInput(deal)}
                 submitLabel="Отправить обновлённые условия клиенту"
                 onSubmit={(input) => {
-                  // FR-52: сделка, отправленная в пределах лимита, может дорасти через торг выше
-                  // него — сумма перепроверяется на каждой правке, а не только при первой отправке.
-                  if (exceedsDealAmountLimit(input.amount)) {
-                    setReserveWarning(
-                      `Новая сумма выше лимита ${formatMoney(DEAL_AMOUNT_LIMIT)} — такие условия требуют одобрения оператора.`,
-                    )
-                    return
-                  }
                   setReserveWarning(null)
                   updateDeal(deal.id, input)
                   setShowEditSpecForm(false)
+                  // FR-52: сделка, отправленная в пределах лимита, может дорасти через торг выше
+                  // него. Правку сохраняем — запрещать её нельзя, это нормальный ход торга, — но
+                  // сделка уходит на одобрение оператора, а не остаётся в согласовании без проверки.
+                  if (exceedsDealAmountLimit(input.amount)) {
+                    requireApproval(deal.id)
+                  }
                 }}
               />
             )}

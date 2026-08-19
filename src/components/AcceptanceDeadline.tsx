@@ -1,5 +1,6 @@
-import { formatDateTime } from '../domain/statusLabels'
+import { formatDate, formatDateTime } from '../domain/statusLabels'
 import { isAcceptanceWindowExpired } from '../domain/acceptanceWindow'
+import { acceptanceReminders } from '../domain/acceptanceReminders'
 import { Money } from './Money'
 import type { Deal } from '../domain/types'
 
@@ -27,6 +28,9 @@ export function AcceptanceDeadline({ deal, finalAmount }: { deal: Deal; finalAmo
   if (!deal.acceptanceDeadline) return null
 
   const expired = isAcceptanceWindowExpired(deal.acceptanceDeadline)
+  const declaredAt = deal.statusHistory.find((h) => h.status === 'awaiting_acceptance')?.at
+  const reminders =
+    declaredAt && !expired ? acceptanceReminders(declaredAt, deal.acceptanceDeadline) : []
 
   return (
     <div className="flex flex-col gap-2 border-t border-dashed border-border pt-3.5 sm:flex-row sm:gap-3">
@@ -50,6 +54,21 @@ export function AcceptanceDeadline({ deal, finalAmount }: { deal: Deal; finalAmo
             производителю. {humanizeRemaining(deal.acceptanceDeadline)}. Если вы нашли недостатки —
             отклоните приёмку с описанием, и отсчёт остановится.
           </>
+        )}
+
+        {/* FR-23: клиент заранее знает, когда его окликнут. Молчание может стоить ему денег,
+            поэтому график напоминаний показан явно, а не подразумевается. */}
+        {reminders.length > 0 && (
+          <span className="mt-2 block text-[12.5px] text-ink-3">
+            Напомним дважды:{' '}
+            {reminders.map((reminder, index) => (
+              <span key={reminder.kind}>
+                {index > 0 && ', '}
+                {formatDate(reminder.at)} — {reminder.text}
+              </span>
+            ))}
+            .
+          </span>
         )}
       </p>
     </div>
