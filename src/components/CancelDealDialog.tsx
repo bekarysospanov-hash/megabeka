@@ -17,7 +17,7 @@ import { useDemoActions } from '../store/DemoProvider'
 import type { Actor } from '../domain/types'
 
 // Лёгкая отмена до оплаты — деньги ещё не двигались, поэтому это не эскалация оператору
-// и не формальный спор, в отличие от callOperator/initiateRefund.
+// и не формальный спор, в отличие от callOperator и решения арбитра.
 export function CancelDealDialog({
   dealId,
   actor,

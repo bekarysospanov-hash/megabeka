@@ -30,7 +30,9 @@ export const PROGRESS_STAGES: ProgressStage[] = [
   {
     key: 'acceptance',
     label: 'Приёмка',
-    statuses: ['awaiting_acceptance', 'act_signing', 'act_signed'],
+    // «Устранение» относится к приёмке, а не к производству: изделие уже показано клиенту и
+    // дорабатывается по решению арбитра, после чего готовность заявляется повторно.
+    statuses: ['awaiting_acceptance', 'act_signing', 'act_signed', 'remedy'],
   },
   {
     key: 'completed',

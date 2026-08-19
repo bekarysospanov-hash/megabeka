@@ -5,7 +5,6 @@ import {
   clientAccepts,
   createDeal,
   freezeDispute,
-  initiateRefund,
   markProductionDone,
   onboardClient,
   pay,
@@ -357,19 +356,11 @@ describe('freezeDispute', () => {
   })
 })
 
-describe('initiateRefund', () => {
-  it('необратимо переводит сделку в cancelled_refunded', () => {
-    const { deal } = callOperator(toInProduction(), 'client', 'товар не подошёл')
-    const refunded = initiateRefund(deal)
-    expect(refunded.status).toBe('cancelled_refunded')
-  })
-})
-
 describe('resolveDispute', () => {
   it('возвращает сделку в статус, из которого был открыт спор, и снимает frozen', () => {
     const { deal } = callOperator(toInProduction(), 'client', 'задержка сроков')
     const frozen = freezeDispute(deal)
-    const resolved = resolveDispute(frozen)
+    const { deal: resolved } = resolveDispute(frozen, { kind: 'rejected', newDeadline: '2026-09-15' })
     expect(resolved.status).toBe('in_production')
     expect(resolved.frozen).toBe(false)
   })

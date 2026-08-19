@@ -14,7 +14,6 @@ import {
   clientAccepts as clientAcceptsFn,
   createDeal as createDealFn,
   freezeDispute as freezeDisputeFn,
-  initiateRefund as initiateRefundFn,
   markProductionDone as markProductionDoneFn,
   onboardClient as onboardClientFn,
   pay as payFn,
@@ -33,6 +32,7 @@ import {
   updateDealSpec as updateDealSpecFn,
 } from '../domain/dealMachine'
 import { validatePaymentSplit } from '../domain/dealLimits'
+import type { DisputeResolution } from '../domain/disputeResolution'
 import { generateId } from '../domain/id'
 import {
   buildActRejectedNotification,
@@ -200,8 +200,7 @@ type Action =
   | { type: 'payInterim'; dealId: string }
   | { type: 'callOperator'; dealId: string; openedBy: Actor; reason: string }
   | { type: 'freezeDispute'; dealId: string }
-  | { type: 'initiateRefund'; dealId: string }
-  | { type: 'resolveDispute'; dealId: string }
+  | { type: 'resolveDispute'; dealId: string; resolution: DisputeResolution }
   | { type: 'cancelDeal'; dealId: string; actor: Actor; reason: string }
   | { type: 'retryPayment'; dealId: string }
   | { type: 'operatorSetStatus'; dealId: string; status: Deal['status'] }
@@ -422,19 +421,18 @@ function reducer(state: DemoState, action: Action): DemoState {
       const deal = freezeDisputeFn(state.deals[action.dealId])
       return { ...state, deals: { ...state.deals, [deal.id]: deal } }
     }
-    case 'initiateRefund': {
-      const deal = initiateRefundFn(state.deals[action.dealId])
-      return {
-        ...state,
-        deals: { ...state.deals, [deal.id]: deal },
-        notifications: notify(state, deal.id, deal.status),
-      }
-    }
     case 'resolveDispute': {
-      const deal = resolveDisputeFn(state.deals[action.dealId])
+      const { deal, craftsmanPayout } = resolveDisputeFn(
+        state.deals[action.dealId],
+        action.resolution,
+        state.transactions,
+      )
       return {
         ...state,
         deals: { ...state.deals, [deal.id]: deal },
+        // Остаток мебельщику при частичном возврате: без него удержанные деньги остались бы
+        // без адресата и заперлись бы на сделке навсегда (FR-26).
+        transactions: craftsmanPayout ? [...state.transactions, craftsmanPayout] : state.transactions,
         disputes: state.disputes.map((d) =>
           d.dealId === deal.id && d.status === 'open' ? { ...d, status: 'resolved' } : d,
         ),
@@ -695,12 +693,9 @@ export function useDemoActions() {
       (dealId: string) => dispatch({ type: 'freezeDispute', dealId }),
       [dispatch],
     ),
-    initiateRefund: useCallback(
-      (dealId: string) => dispatch({ type: 'initiateRefund', dealId }),
-      [dispatch],
-    ),
     resolveDispute: useCallback(
-      (dealId: string) => dispatch({ type: 'resolveDispute', dealId }),
+      (dealId: string, resolution: DisputeResolution) =>
+        dispatch({ type: 'resolveDispute', dealId, resolution }),
       [dispatch],
     ),
     cancelDeal: useCallback(

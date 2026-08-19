@@ -14,16 +14,20 @@ import { StepGuidanceCard } from '../components/StepGuidanceCard'
 import { DealProgressBar } from '../components/DealProgressBar'
 import { DealMoneyBoard } from '../components/DealMoneyBoard'
 import { AcceptanceDeadline } from '../components/AcceptanceDeadline'
+
 import { OfferAgreementNote } from '../components/OfferAgreementNote'
 import { ProductionTimer } from '../components/ProductionTimer'
 import { RevisionRequestForm } from '../components/RevisionRequestForm'
 import { CancelDealDialog } from '../components/CancelDealDialog'
+import { OpenDisputeDialog } from '../components/OpenDisputeDialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { ESCALATABLE_STATUSES } from '../domain/dealMachine'
 import { generateActText, generateContractText } from '../domain/contractTemplate'
 import { formatDateTime, formatMoney } from '../domain/statusLabels'
+import { ITEM_FATE_LABELS, REMOVAL_COST_BEARER_LABELS } from '../domain/disputeResolution'
 import type { Deal } from '../domain/types'
 import { Money } from '../components/Money'
 
@@ -316,7 +320,27 @@ function ClientDealScreen({ dealId }: { dealId: string }) {
         ))}
 
       {deal.status === 'cancelled_refunded' && (
-        <p className="text-sm font-semibold text-destructive">Сделка отменена, деньги возвращены (демо).</p>
+        // Главный вопрос клиента здесь — сколько именно ему вернули. Общая фраза «деньги
+        // возвращены» на него не отвечает, а проверяется пилотом ровно это обещание.
+        <div className="grid gap-1.5 border border-border bg-card p-4">
+          <p className="text-sm font-semibold">
+            {deal.refundAmount === deal.amount ? 'Возвращена вся сумма сделки' : 'Назначен возврат'}
+          </p>
+          {deal.refundAmount != null && (
+            <p className="text-sm">
+              Вам возвращается <Money amount={deal.refundAmount} className="font-semibold" />
+              {deal.refundAmount === deal.amount && ' — включая часть, уже переведённую производителю'}.
+            </p>
+          )}
+          {deal.itemFate && (
+            <p className="text-[13px] text-muted-foreground">
+              Изделие: {ITEM_FATE_LABELS[deal.itemFate].toLowerCase()}
+              {deal.removalCostBearer &&
+                `, демонтаж и вывоз за счёт стороны «${REMOVAL_COST_BEARER_LABELS[deal.removalCostBearer].toLowerCase()}»`}
+              .
+            </p>
+          )}
+        </div>
       )}
 
       {deal.status === 'cancelled' && (
@@ -327,6 +351,14 @@ function ClientDealScreen({ dealId }: { dealId: string }) {
 
       {/* Переписка временно скрыта на этом этапе пилота — стороны общаются вне платформы,
           см. PRD раздел 21. Компонент и данные messages не удалены, чтобы вернуть в одну строку. */}
+
+      {/* Вход в спор доступен ровно на тех статусах, где он разрешён доменом (FR-24):
+          там, где деньги уже внесены и по ним возможны обязательства. */}
+      {ESCALATABLE_STATUSES.includes(deal.status) && (
+        <div className="flex justify-start">
+          <OpenDisputeDialog dealId={deal.id} actor="client" />
+        </div>
+      )}
 
       <DisputePanel deal={deal} disputes={disputes} />
     </div>

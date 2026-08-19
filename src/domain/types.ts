@@ -1,3 +1,5 @@
+import type { DisputeResolutionKind, ItemFate, RemovalCostBearer } from './disputeResolution'
+
 export type DealStatus =
   | 'draft'
   | 'awaiting_client'
@@ -13,6 +15,8 @@ export type DealStatus =
   | 'act_signed'
   | 'completed'
   | 'dispute_open'
+  /** Исход спора «устранение недостатков» (FR-26): изделие дорабатывается в срок арбитра */
+  | 'remedy'
   | 'cancelled_refunded'
   | 'cancelled'
 
@@ -91,6 +95,16 @@ export interface Deal {
   interimPaidAt: string | null
   cancellationReason: string | null
   cancelledBy: Actor | null
+  /** Исход последнего разрешённого спора (FR-26) */
+  disputeResolution: DisputeResolutionKind | null
+  /** Сумма возврата клиенту — вводит арбитр, система её не вычисляет (16.2 п.18) */
+  refundAmount: number | null
+  /** Часть возврата, покрытая резервом платформы. В баланс сделки не входит */
+  reservePayoutAmount: number | null
+  /** Срок устранения недостатков, обязателен при соответствующем исходе */
+  remedyDeadline: string | null
+  itemFate: ItemFate | null
+  removalCostBearer: RemovalCostBearer | null
 }
 
 export interface RevisionEntry {
@@ -108,7 +122,12 @@ export interface RevisionEntry {
 
 export interface Transaction {
   dealId: string
-  type: 'prepayment' | 'interim' | 'final'
+  /**
+   * `settlement` — остаток мебельщику при частичном возврате по решению арбитра. Отделён от
+   * `final`, потому что это не финальный платёж за принятую работу: акта не было и не будет,
+   * и подписывать «Поступит после подписания акта» под этой суммой нельзя.
+   */
+  type: 'prepayment' | 'interim' | 'final' | 'settlement'
   amount: number
   status: 'paid'
   paidAt: string

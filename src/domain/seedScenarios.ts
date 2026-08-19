@@ -117,7 +117,7 @@ function buildDisputeScenario(): DemoScenario {
   const opened = callOperator(deal, 'client', 'задержка сроков изготовления')
   const dispute: DisputeLog = { ...opened.dispute, status: 'resolved' }
   deal = freezeDispute(opened.deal)
-  deal = resolveDispute(deal)
+  deal = resolveDispute(deal, { kind: 'rejected', newDeadline: '2026-09-15' }).deal
 
   deal = markProductionDone(deal)
   deal = signActByFurnitureMaker(deal, '9999')

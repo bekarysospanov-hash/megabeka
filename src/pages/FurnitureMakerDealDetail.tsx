@@ -24,7 +24,7 @@ import { dealToSpecInput } from '../domain/dealMachine'
 import { generateActText, generateContractText } from '../domain/contractTemplate'
 import { calculateGuaranteeReserve } from '../domain/guaranteeReserve'
 import { DEAL_AMOUNT_LIMIT, exceedsDealAmountLimit } from '../domain/dealLimits'
-import { formatMoney } from '../domain/statusLabels'
+import { formatDate, formatMoney } from '../domain/statusLabels'
 import { Money } from '../components/Money'
 
 export function FurnitureMakerDealDetail() {
@@ -235,6 +235,26 @@ export function FurnitureMakerDealDetail() {
 
       {deal.status === 'payment_processing' && (
         <p className="text-sm text-muted-foreground">Клиент оплачивает — платёж обрабатывается банком/эквайрингом.</p>
+      )}
+
+      {deal.status === 'remedy' && (
+        <div className="grid gap-3">
+          <div className="border border-warning/40 bg-wait-soft px-4 py-3">
+            <div className="font-mono text-[11px] uppercase tracking-[0.1em] text-warning">
+              Срок устранения
+            </div>
+            <p className="mt-1 text-sm">
+              По решению спора недостатки нужно устранить{' '}
+              <span className="font-semibold">
+                до {deal.remedyDeadline ? formatDate(deal.remedyDeadline) : 'срока, назначенного арбитром'}
+              </span>
+              . После этого заявите готовность повторно — у клиента снова будет 3 рабочих дня на приёмку.
+            </p>
+          </div>
+          <Button className="w-fit" onClick={() => markProductionDone(deal.id)}>
+            Отметить готово / передать на приёмку
+          </Button>
+        </div>
       )}
 
       {(deal.status === 'paid' || deal.status === 'in_production') && (

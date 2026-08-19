@@ -6,6 +6,7 @@ const TYPE_LABELS: Record<Transaction['type'], string> = {
   prepayment: 'Предоплата',
   interim: 'Промежуточный транш',
   final: 'Финальный платёж',
+  settlement: 'Расчёт по решению спора',
 }
 
 export function TransactionList({ transactions }: { transactions: Transaction[] }) {

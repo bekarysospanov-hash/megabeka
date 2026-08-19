@@ -15,6 +15,7 @@ export const STATUS_LABELS: Record<DealStatus, string> = {
   act_signed: 'Акт подписан',
   completed: 'Завершена',
   dispute_open: 'Спор / эскалация',
+  remedy: 'Устранение недостатков',
   cancelled_refunded: 'Отменена, возврат',
   cancelled: 'Отменена',
 }
@@ -36,6 +37,7 @@ export const STATUS_TONES: Record<DealStatus, StatusTone> = {
   act_signed: 'success',
   completed: 'success',
   dispute_open: 'danger',
+  remedy: 'warning',
   cancelled_refunded: 'danger',
   cancelled: 'neutral',
 }

@@ -1,4 +1,5 @@
 import { calculateAcceptanceDeadline, isAcceptanceWindowExpired } from './acceptanceWindow'
+import { availableResolutions, remainderForCraftsman, type DisputeResolution } from './disputeResolution'
 import { generateId } from './id'
 import type {
   Actor,
@@ -24,10 +25,14 @@ export const ESCALATABLE_STATUSES: DealStatus[] = [
   'in_production',
   'awaiting_acceptance',
   'act_signing',
+  // FR-24 называет «Устранение» среди состояний, из которых открывается спор. Без этого
+  // мебельщик, пропавший во время доработки, запирает сделку навсегда: заявить готовность
+  // повторно некому, а другого выхода из remedy нет.
+  'remedy',
 ]
 
 // До payment_processing деньги ещё не двигались — лёгкая отмена закрывает сделку сразу,
-// без формального спора/эскалации оператору. После — только через callOperator/initiateRefund,
+// без формального спора/эскалации оператору. После — только через спор и решение арбитра,
 // потому что там уже есть деньги, которые нужно по-настоящему возвращать. draft/awaiting_client
 // включены отдельно от остальных: там ещё не было ни подписания, ни явного согласия клиента —
 // закрытие сделки на этом этапе называется в UI иначе ("Закрыть без подписания"), но это тот
@@ -169,6 +174,12 @@ export function createDeal(input: CreateDealInput): Deal {
     interimPaidAt: null,
     cancellationReason: null,
     cancelledBy: null,
+    disputeResolution: null,
+    refundAmount: null,
+    reservePayoutAmount: null,
+    remedyDeadline: null,
+    itemFate: null,
+    removalCostBearer: null,
   }
 }
 
@@ -285,7 +296,9 @@ export function pay(deal: Deal): { deal: Deal; transaction: Transaction } {
 // Заявление готовности запускает окно приёмки (FR-19): с этого момента у клиента есть
 // 3 рабочих дня по календарю РК, после которых заказ считается принятым (FR-22).
 export function markProductionDone(deal: Deal): Deal {
-  assertStatus(deal, 'in_production')
+  // Из «Устранения» готовность заявляется повторно (PRD 7.3): окно приёмки запускается заново
+  // на полные 3 рабочих дня, потому что клиент смотрит уже переделанное изделие.
+  assertStatusOneOf(deal, ['in_production', 'remedy'])
   const declaredAt = new Date().toISOString()
   return withStatus(
     { ...deal, acceptanceDeadline: calculateAcceptanceDeadline(declaredAt) },
@@ -413,15 +426,94 @@ export function freezeDispute(deal: Deal): Deal {
   return { ...deal, frozen: true }
 }
 
-export function initiateRefund(deal: Deal): Deal {
-  assertStatus(deal, 'dispute_open')
-  return withStatus(deal, 'cancelled_refunded')
-}
-
-export function resolveDispute(deal: Deal): Deal {
+/**
+ * Решение арбитра по спору — один из четырёх исходов FR-26. Функция возвращает не только
+ * сделку, но и денежные последствия решения, потому что они не выводятся из статуса:
+ *  — `craftsmanPayout`: остаток мебельщику при частичном возврате. Без него остаток удержания
+ *    остался бы без адресата, и деньги мебельщика заперлись бы навсегда;
+ *  — `reservePayout`: часть возврата сверх того, что ещё лежит на счету платформы. Это
+ *    собственные деньги платформы, они питают контр-метрику и в баланс сделки не входят.
+ *
+ * Сумму частичного возврата вводит арбитр: вычислять её за него запрещено (16.2 п.18).
+ */
+export function resolveDispute(
+  deal: Deal,
+  resolution: DisputeResolution,
+  transactions: Transaction[] = [],
+): { deal: Deal; craftsmanPayout: Transaction | null; reservePayout: number } {
   assertStatus(deal, 'dispute_open')
   if (!deal.previousStatus) {
     throw new Error('Нет статуса для возврата: previousStatus не задан')
+  }
+  if (!availableResolutions(deal).includes(resolution.kind)) {
+    throw new Error(
+      'Исход «устранение недостатков» доступен только при споре из окна приёмки: до заявления готовности устранять нечего',
+    )
+  }
+
+  const paidOut = transactions
+    .filter((t) => t.dealId === deal.id)
+    .reduce((sum, t) => sum + t.amount, 0)
+  const decided = {
+    ...deal,
+    frozen: false,
+    disputeResolution: resolution.kind,
+  }
+
+  if (resolution.kind === 'remedy') {
+    if (!resolution.remedyDeadline.trim()) {
+      throw new Error('Исход «устранение недостатков» без срока не имеет выхода: укажите срок')
+    }
+    const restored = withStatus({ ...decided, remedyDeadline: resolution.remedyDeadline }, 'remedy')
+    return { deal: { ...restored, previousStatus: null }, craftsmanPayout: null, reservePayout: 0 }
+  }
+
+  if (resolution.kind === 'partial_refund' || resolution.kind === 'full_refund') {
+    const refundAmount =
+      resolution.kind === 'full_refund' ? deal.amount : resolution.refundAmount
+
+    if (refundAmount <= 0) {
+      throw new Error('Укажите сумму возврата: система не вычисляет её за арбитра')
+    }
+    const remainder = remainderForCraftsman(deal.amount, refundAmount, paidOut)
+    if (remainder < 0 && resolution.kind === 'partial_refund') {
+      throw new Error(
+        'Сумма превышает доступную к возврату при уже сделанных выплатах — оформите полный возврат из резерва',
+      )
+    }
+
+    // Резерв расходуется на ту часть возврата, которой на счету платформы уже нет.
+    const heldAmount = deal.amount - paidOut
+    const reservePayout = Math.max(0, refundAmount - heldAmount)
+
+    const craftsmanPayout: Transaction | null =
+      resolution.kind === 'partial_refund' && remainder > 0
+        ? {
+            dealId: deal.id,
+            type: 'settlement',
+            amount: remainder,
+            status: 'paid',
+            paidAt: new Date().toISOString(),
+          }
+        : null
+
+    const settled = withStatus(
+      {
+        ...decided,
+        refundAmount,
+        reservePayoutAmount: reservePayout,
+        itemFate: resolution.itemFate,
+        removalCostBearer: resolution.removalCostBearer,
+      },
+      'cancelled_refunded',
+    )
+    return { deal: { ...settled, previousStatus: null }, craftsmanPayout, reservePayout }
+  }
+
+  if (!resolution.newDeadline.trim()) {
+    throw new Error(
+      'Отклоняя спор, укажите новый срок исполнения: иначе просрочка немедленно откроет спор снова',
+    )
   }
   // Разбор спора съедает окно приёмки: к моменту возврата срок обычно уже истёк, и
   // авто-приёмка сработала бы в ту же секунду — деньги ушли бы мебельщику раньше, чем клиент
@@ -431,15 +523,18 @@ export function resolveDispute(deal: Deal): Deal {
     deal.previousStatus === 'awaiting_acceptance' || deal.previousStatus === 'act_signing'
   const restored = withStatus(
     {
-      ...deal,
-      frozen: false,
+      ...decided,
       acceptanceDeadline: returnsToAcceptanceWindow
         ? calculateAcceptanceDeadline(new Date().toISOString())
         : deal.acceptanceDeadline,
     },
     deal.previousStatus,
   )
-  return { ...restored, previousStatus: null }
+  return {
+    deal: { ...restored, previousStatus: null },
+    craftsmanPayout: null,
+    reservePayout: 0,
+  }
 }
 
 export function cancelDeal(deal: Deal, actor: Actor, reason: string): Deal {

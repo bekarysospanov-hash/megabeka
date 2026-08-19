@@ -102,7 +102,7 @@ describe('autoAcceptDeal (FR-22)', () => {
     const expired = { ...deal, acceptanceDeadline: new Date(Date.now() - 1000).toISOString() }
     const disputed = callOperator(expired, 'client', 'скол на дверце').deal
 
-    const restored = resolveDispute(disputed)
+    const restored = resolveDispute(disputed, { kind: 'rejected', newDeadline: '2026-09-15' }).deal
 
     // Иначе финальный транш ушёл бы мебельщику в ту же секунду, когда спор отклонён,
     // и клиент не успел бы даже увидеть результат разбора.
@@ -120,7 +120,10 @@ describe('autoAcceptDeal (FR-22)', () => {
     deal = submitPayment(deal, 'card')
     deal = pay(deal).deal // in_production, окна приёмки ещё не было
 
-    const restored = resolveDispute(callOperator(deal, 'client', 'работы не ведутся').deal)
+    const restored = resolveDispute(callOperator(deal, 'client', 'работы не ведутся').deal, {
+      kind: 'rejected',
+      newDeadline: '2026-09-15',
+    }).deal
 
     expect(restored.acceptanceDeadline).toBeNull()
   })

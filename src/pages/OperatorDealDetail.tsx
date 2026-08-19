@@ -5,6 +5,7 @@ import { StatusBadge } from '../components/StatusBadge'
 import { RevisionDiffList } from '../components/RevisionDiffList'
 import { TransactionList } from '../components/TransactionList'
 import { DisputePanel } from '../components/DisputePanel'
+import { DisputeResolutionForm } from '../components/DisputeResolutionForm'
 import { MessageThread } from '../components/MessageThread'
 import { OrderSpecSummary } from '../components/OrderSpecSummary'
 import { BackLink } from '../components/BackLink'
@@ -26,11 +27,13 @@ import { STATUS_LABELS, formatDate } from '../domain/statusLabels'
 import type { DealStatus } from '../domain/types'
 import { Money } from '../components/Money'
 
-// dispute_open и cancelled_refunded не включены: у них своя логика входа
-// (callOperator создаёт DisputeLog и previousStatus; initiateRefund требует dispute_open) —
-// ручной прыжок в эти статусы в обход неё ломает инварианты state-machine.
+// Статусы, вход в которые несёт обязательные данные, недоступны для ручного прыжка: он их не
+// заполнит и оставит сделку в состоянии без выхода.
+//   dispute_open — callOperator создаёт DisputeLog и previousStatus;
+//   cancelled_refunded — только решение арбитра, с суммой возврата и судьбой изделия;
+//   remedy — только решение арбитра, со сроком устранения.
 const MANUAL_STATUSES = (Object.keys(STATUS_LABELS) as DealStatus[]).filter(
-  (status) => status !== 'dispute_open' && status !== 'cancelled_refunded',
+  (status) => status !== 'dispute_open' && status !== 'cancelled_refunded' && status !== 'remedy',
 )
 
 export function OperatorDealDetail() {
@@ -38,7 +41,7 @@ export function OperatorDealDetail() {
   const deal = useDeal(id)
   const { revisions, transactions, disputes, messages } = useDealHistory(id)
   const { furnitureMakerVerification } = useDemoState()
-  const { freezeDispute, initiateRefund, resolveDispute, operatorSetStatus, addMessage } = useDemoActions()
+  const { freezeDispute, resolveDispute, operatorSetStatus, addMessage } = useDemoActions()
   const [manualStatus, setManualStatus] = useState<DealStatus | ''>('')
 
   if (!deal) return <p className="text-sm text-muted-foreground">Сделка не найдена.</p>
@@ -80,13 +83,20 @@ export function OperatorDealDetail() {
 
       <OrderSpecSummary deal={deal} />
 
-      <DisputePanel
-        deal={deal}
-        disputes={disputes}
-        onFreeze={() => freezeDispute(deal.id)}
-        onRefund={() => initiateRefund(deal.id)}
-        onResolve={() => resolveDispute(deal.id)}
-      />
+      <DisputePanel deal={deal} disputes={disputes} onFreeze={() => freezeDispute(deal.id)} />
+
+      {/* Решение выносится одним из четырёх исходов FR-26, а не кнопкой «пометить решённым»:
+          от исхода зависит, куда уйдут деньги и что станет с изделием. */}
+      {deal.status === 'dispute_open' && (
+        <DisputeResolutionForm
+          // key по сделке: без ремаунта введённая сумма возврата и сроки протекли бы на
+          // соседний спор, и арбитр вынес бы решение с чужой цифрой.
+          key={deal.id}
+          deal={deal}
+          transactions={transactions}
+          onResolve={(resolution) => resolveDispute(deal.id, resolution)}
+        />
+      )}
 
       <section>
         <h2 className="mb-2 text-sm font-semibold">История правок</h2>
