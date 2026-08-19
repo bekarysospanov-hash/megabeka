@@ -16,8 +16,22 @@ function tx(dealId: string, amount: number): Transaction {
   return { dealId, type: 'prepayment', amount, status: 'paid', paidAt: new Date().toISOString() }
 }
 
-function transfer(dealId: string, amount: number): TransferRequest {
-  return { id: Math.random().toString(36), dealId, amount, purpose: 'test', requestedAt: new Date().toISOString() }
+function transfer(
+  dealId: string,
+  amount: number,
+  status: TransferRequest['status'] = 'pending',
+): TransferRequest {
+  return {
+    id: Math.random().toString(36),
+    dealId,
+    amount,
+    purpose: 'test',
+    requestedAt: new Date().toISOString(),
+    status,
+    executedAt: status === 'executed' ? new Date().toISOString() : null,
+    rejectedAt: status === 'rejected' ? new Date().toISOString() : null,
+    rejectionReason: status === 'rejected' ? 'test' : null,
+  }
 }
 
 describe('calculateAvailableBalance', () => {
@@ -46,6 +60,32 @@ describe('calculateAvailableBalance', () => {
     const transactions = [tx('deal-1', 500_000)]
     const transferRequests = [transfer('deal-1', 500_000)]
     expect(calculateAvailableBalance('deal-1', transactions, transferRequests)).toBe(0)
+  })
+
+  // Исполненный перевод забрал деньги со счёта сделки: если бы он перестал вычитаться,
+  // мебельщик получил бы одну и ту же сумму дважды.
+  it('исполненный перевод не возвращается в доступный баланс', () => {
+    const transactions = [tx('deal-1', 500_000)]
+    const transferRequests = [transfer('deal-1', 200_000, 'executed')]
+    expect(calculateAvailableBalance('deal-1', transactions, transferRequests)).toBe(300_000)
+  })
+
+  // Отклонённый запрос денег не двинул — сумма снова доступна к запросу, иначе опечатка
+  // мебельщика запирала бы баланс сделки навсегда.
+  it('отклонённый запрос возвращает сумму в доступный баланс', () => {
+    const transactions = [tx('deal-1', 500_000)]
+    const transferRequests = [transfer('deal-1', 200_000, 'rejected')]
+    expect(calculateAvailableBalance('deal-1', transactions, transferRequests)).toBe(500_000)
+  })
+
+  it('вычитает только необработанные и исполненные запросы вместе', () => {
+    const transactions = [tx('deal-1', 500_000)]
+    const transferRequests = [
+      transfer('deal-1', 100_000, 'pending'),
+      transfer('deal-1', 150_000, 'executed'),
+      transfer('deal-1', 200_000, 'rejected'),
+    ]
+    expect(calculateAvailableBalance('deal-1', transactions, transferRequests)).toBe(250_000)
   })
 })
 

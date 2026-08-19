@@ -205,12 +205,20 @@ export interface FurnitureMakerVerification {
   verifiedAt: string
 }
 
+export type TransferRequestStatus = 'pending' | 'executed' | 'rejected'
+
 export interface TransferRequest {
   id: string
   dealId: string
   amount: number
   purpose: string
   requestedAt: string
+  // FR-35: невыплаченные транши обязаны быть видны оператору как задача, а значит запрос
+  // должен уметь закрываться — без статуса он уходил в тишину, съев баланс сделки навсегда.
+  status: TransferRequestStatus
+  executedAt: string | null
+  rejectedAt: string | null
+  rejectionReason: string | null
 }
 
 export interface CreateDealInput {

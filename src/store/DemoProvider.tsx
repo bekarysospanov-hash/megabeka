@@ -42,7 +42,8 @@ import {
   rejectMilestone as rejectMilestoneFn,
 } from '../domain/milestones'
 import type { DisputeResolution } from '../domain/disputeResolution'
-import { generateId } from '../domain/id'
+import { calculateAvailableBalance } from '../domain/balance'
+import { createTransferRequest as createTransferRequestFn } from '../domain/transfers'
 import {
   buildActRejectedNotification,
   buildClientAcceptedNotification,
@@ -150,6 +151,13 @@ function isValidDemoState(value: unknown): value is DemoState {
   ) {
     return false
   }
+  // Запрос на перевод, сохранённый до появления статуса, навсегда вычитался бы из доступного
+  // баланса: закрыть его теперь может только оператор, а у старой записи закрывать нечего.
+  const transferRequestsValid = (v.transferRequests as Record<string, unknown>[]).every(
+    (r) => typeof r.status === 'string' && 'executedAt' in r && 'rejectedAt' in r,
+  )
+  if (!transferRequestsValid) return false
+
   // У оплаченной сделки этапы обязаны существовать: транш теперь появляется только через
   // подтверждение этапа, и сделка без них заперла бы деньги мебельщика навсегда.
   const milestoneDealIds = new Set((v.milestones as { dealId?: string }[]).map((m) => m.dealId))
@@ -637,13 +645,19 @@ function reducer(state: DemoState, action: Action): DemoState {
       return { ...state, furnitureMakerVerification }
     }
     case 'requestTransfer': {
-      const transferRequest: TransferRequest = {
-        id: generateId(),
-        dealId: action.dealId,
-        amount: action.amount,
-        purpose: action.purpose,
-        requestedAt: new Date().toISOString(),
-      }
+      // Доступный баланс считаем здесь, а не берём из формы: домен обязан проверить сумму
+      // сам, иначе единственной защитой от запроса «больше, чем раскрыто» остаётся кнопка.
+      const available = calculateAvailableBalance(
+        action.dealId,
+        state.transactions,
+        state.transferRequests,
+      )
+      const transferRequest: TransferRequest = createTransferRequestFn(
+        action.dealId,
+        action.amount,
+        action.purpose,
+        available,
+      )
       return { ...state, transferRequests: [...state.transferRequests, transferRequest] }
     }
     default:
