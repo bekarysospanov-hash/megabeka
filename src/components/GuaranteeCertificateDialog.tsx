@@ -14,16 +14,6 @@ import type { Deal } from '../domain/types'
 export const GUARANTEE_SEEN_STORAGE_KEY = 'asia-mebel-guarantee-seen-v1'
 const SEEN_KEY = GUARANTEE_SEEN_STORAGE_KEY
 
-export function hasSeenCertificate(dealId: string): boolean {
-  try {
-    const raw = window.localStorage.getItem(SEEN_KEY)
-    const seen: string[] = raw ? JSON.parse(raw) : []
-    return seen.includes(dealId)
-  } catch {
-    return false
-  }
-}
-
 function markCertificateSeen(dealId: string): void {
   try {
     const raw = window.localStorage.getItem(SEEN_KEY)

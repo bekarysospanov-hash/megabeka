@@ -15,7 +15,6 @@ import { ContractPreviewDialog } from '../components/ContractPreviewDialog'
 import { StepGuidanceCard } from '../components/StepGuidanceCard'
 import { DealProgressBar } from '../components/DealProgressBar'
 import { DealBalance } from '../components/DealBalance'
-import { PayoutTimeline } from '../components/PayoutTimeline'
 import { MilestoneList } from '../components/MilestoneList'
 import { DealSpecForm } from '../components/DealSpecForm'
 import { BackLink } from '../components/BackLink'
@@ -360,11 +359,13 @@ export function FurnitureMakerDealDetail() {
           после подтверждения этапа оператором, поэтому список стоит выше блока денег. */}
       <MilestoneList deal={deal} milestones={milestones} role="furniture_maker" />
 
-      {/* Зона C — деньги */}
+      {/* Зона C — деньги. Отдельного таймлайна выплат здесь нет сознательно: график
+          раскрытия денег показывает список этапов выше, и второе его описание расходилось
+          с моделью — обещало предоплату «после подписания договора», хотя деньги
+          раскрывает подтверждение этапа оператором (FR-14). */}
       {transactions.length > 0 && (
         <section className="grid gap-2">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Деньги</h2>
-          <PayoutTimeline deal={deal} transactions={transactions} />
           <DealBalance
             dealId={deal.id}
             dealAmount={deal.amount}

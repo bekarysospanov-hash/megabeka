@@ -1,4 +1,4 @@
-import type { Deal, Milestone, MilestoneStatus, Transaction } from './types'
+import type { Deal, Milestone, Transaction } from './types'
 
 /**
  * Этапы сделки (FR-03). В прототипе они выводятся из уже согласованной схемы траншей, а не
@@ -137,9 +137,10 @@ export function closeFinalMilestone(milestones: Milestone[]): Milestone[] {
 
 /**
  * Тип транша по этапу. Сохраняет существующие типы транзакций, чтобы блок «Деньги» у клиента
- * и таймлайн выплат продолжали различать предоплату, промежуточный и финальный платёж.
+ * и список поступлений у мебельщика продолжали различать предоплату, промежуточный и
+ * финальный платёж.
  */
-export function milestoneTransactionType(milestone: Milestone): Transaction['type'] {
+function milestoneTransactionType(milestone: Milestone): Transaction['type'] {
   if (milestone.isFinal) return 'final'
   return milestone.orderNo === 1 ? 'prepayment' : 'interim'
 }
@@ -153,10 +154,4 @@ export function buildMilestonePayout(deal: Deal, milestone: Milestone): Transact
     status: 'paid',
     paidAt: new Date().toISOString(),
   }
-}
-
-export const MILESTONE_STATUS_LABELS: Record<MilestoneStatus, string> = {
-  planned: 'Запланирован',
-  declared: 'На проверке у оператора',
-  confirmed: 'Подтверждён',
 }

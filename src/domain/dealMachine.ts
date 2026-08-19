@@ -16,7 +16,7 @@ import type {
   Transaction,
 } from './types'
 
-export const EDITABLE_STATUSES: DealStatus[] = ['draft', 'negotiation']
+const EDITABLE_STATUSES: DealStatus[] = ['draft', 'negotiation']
 
 export const ESCALATABLE_STATUSES: DealStatus[] = [
   'negotiation',
@@ -40,7 +40,7 @@ export const ESCALATABLE_STATUSES: DealStatus[] = [
 // включены отдельно от остальных: там ещё не было ни подписания, ни явного согласия клиента —
 // закрытие сделки на этом этапе называется в UI иначе ("Закрыть без подписания"), но это тот
 // же самый переход в cancelled, тот же cancelDeal.
-export const CANCELLABLE_STATUSES: DealStatus[] = [
+const CANCELLABLE_STATUSES: DealStatus[] = [
   'draft',
   'awaiting_client',
   // Ожидание одобрения — тоже до денег: мебельщик вправе закрыть сделку, не дожидаясь решения.
