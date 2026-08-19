@@ -43,7 +43,12 @@ import {
 } from '../domain/milestones'
 import type { DisputeResolution } from '../domain/disputeResolution'
 import { calculateAvailableBalance } from '../domain/balance'
-import { createTransferRequest as createTransferRequestFn } from '../domain/transfers'
+import {
+  createTransferRequest as createTransferRequestFn,
+  executeTransfer as executeTransferFn,
+  rejectTransfer as rejectTransferFn,
+  rejectTransfersOfRefundedDeal as rejectTransfersOfRefundedDealFn,
+} from '../domain/transfers'
 import {
   buildActRejectedNotification,
   buildClientAcceptedNotification,
@@ -55,6 +60,8 @@ import {
   buildPaymentRetryNotification,
   buildRevisionRequestedNotification,
   buildRevisionsRequestedNotification,
+  buildTransferExecutedNotification,
+  buildTransferRejectedNotification,
 } from '../domain/notifications'
 import { seedScenarios } from '../domain/seedScenarios'
 import type {
@@ -154,7 +161,10 @@ function isValidDemoState(value: unknown): value is DemoState {
   // Запрос на перевод, сохранённый до появления статуса, навсегда вычитался бы из доступного
   // баланса: закрыть его теперь может только оператор, а у старой записи закрывать нечего.
   const transferRequestsValid = (v.transferRequests as Record<string, unknown>[]).every(
-    (r) => typeof r.status === 'string' && 'executedAt' in r && 'rejectedAt' in r,
+    (r) =>
+      (r.status === 'pending' || r.status === 'executed' || r.status === 'rejected') &&
+      'executedAt' in r &&
+      'rejectedAt' in r,
   )
   if (!transferRequestsValid) return false
 
@@ -249,6 +259,8 @@ type Action =
   | { type: 'markAllNotificationsRead'; role: Actor }
   | { type: 'setFurnitureMakerVerification'; companyName: string; businessId: string; legalAddress: string }
   | { type: 'requestTransfer'; dealId: string; amount: number; purpose: string }
+  | { type: 'executeTransfer'; requestId: string }
+  | { type: 'rejectTransfer'; requestId: string; reason: string }
 
 /** Этапы конкретной сделки: в состоянии они лежат общим списком по всем сделкам. */
 function milestonesOf(state: DemoState, dealId: string): Milestone[] {
@@ -553,6 +565,12 @@ function reducer(state: DemoState, action: Action): DemoState {
         // Остаток мебельщику при частичном возврате: без него удержанные деньги остались бы
         // без адресата и заперлись бы на сделке навсегда (FR-26).
         transactions: craftsmanPayout ? [...state.transactions, craftsmanPayout] : state.transactions,
+        // Возврат снимает незакрытые запросы на перевод: иначе в очереди оператора осталась бы
+        // задача «перевести деньги» по сделке, деньги которой уже ушли клиенту.
+        transferRequests:
+          deal.status === 'cancelled_refunded'
+            ? rejectTransfersOfRefundedDealFn(state.transferRequests, deal.id)
+            : state.transferRequests,
         disputes: state.disputes.map((d) =>
           d.dealId === deal.id && d.status === 'open' ? { ...d, status: 'resolved' } : d,
         ),
@@ -657,8 +675,45 @@ function reducer(state: DemoState, action: Action): DemoState {
         action.amount,
         action.purpose,
         available,
+        state.deals[action.dealId].status,
       )
       return { ...state, transferRequests: [...state.transferRequests, transferRequest] }
+    }
+    case 'executeTransfer': {
+      const request = state.transferRequests.find((r) => r.id === action.requestId)
+      if (!request) return state
+      const updated = executeTransferFn(state.transferRequests, action.requestId)
+      // Повторное исполнение возвращает тот же массив: уведомлять второй раз не о чем,
+      // иначе двойной клик оператора отправил бы мебельщику два сообщения об одних деньгах.
+      if (updated === state.transferRequests) return state
+
+      const deal = state.deals[request.dealId]
+      if (!deal) return { ...state, transferRequests: updated }
+      return {
+        ...state,
+        transferRequests: updated,
+        notifications: [
+          ...state.notifications,
+          ...buildTransferExecutedNotification(deal.id, deal.status, request.amount),
+        ],
+      }
+    }
+    case 'rejectTransfer': {
+      const request = state.transferRequests.find((r) => r.id === action.requestId)
+      if (!request) return state
+      const updated = rejectTransferFn(state.transferRequests, action.requestId, action.reason)
+      if (updated === state.transferRequests) return state
+
+      const deal = state.deals[request.dealId]
+      if (!deal) return { ...state, transferRequests: updated }
+      return {
+        ...state,
+        transferRequests: updated,
+        notifications: [
+          ...state.notifications,
+          ...buildTransferRejectedNotification(deal.id, deal.status, request.amount, action.reason),
+        ],
+      }
     }
     default:
       return state
@@ -895,6 +950,14 @@ export function useDemoActions() {
     requestTransfer: useCallback(
       (dealId: string, amount: number, purpose: string) =>
         dispatch({ type: 'requestTransfer', dealId, amount, purpose }),
+      [dispatch],
+    ),
+    executeTransfer: useCallback(
+      (requestId: string) => dispatch({ type: 'executeTransfer', requestId }),
+      [dispatch],
+    ),
+    rejectTransfer: useCallback(
+      (requestId: string, reason: string) => dispatch({ type: 'rejectTransfer', requestId, reason }),
       [dispatch],
     ),
   }

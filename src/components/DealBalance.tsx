@@ -4,7 +4,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { PayoutRequisitesDialog } from './PayoutRequisitesDialog'
 import { calculateAvailableBalance } from '../domain/balance'
-import { formatDateTime, formatMoney, maskAccountNumber } from '../domain/statusLabels'
+import {
+  TRANSFER_STATUS_LABELS,
+  formatDateTime,
+  formatMoney,
+  maskAccountNumber,
+} from '../domain/statusLabels'
 import { useDemoActions } from '../store/DemoProvider'
 import type { PayoutRequisites, Transaction, TransferRequest } from '../domain/types'
 import { Money } from './Money'
@@ -109,11 +114,26 @@ export function DealBalance({
         <div className="grid gap-1.5 border-t pt-3">
           <h3 className="text-xs font-semibold text-muted-foreground">Запрошенные переводы</h3>
           {transferRequests.map((r) => (
-            <div key={r.id} className="flex items-center justify-between text-sm">
-              <span>
-                {r.purpose} <span className="text-muted-foreground">· {formatDateTime(r.requestedAt)}</span>
-              </span>
-              <span className="font-medium"><Money amount={r.amount} /></span>
+            <div key={r.id} className="grid gap-0.5">
+              <div className="flex items-center justify-between text-sm">
+                <span>
+                  {r.purpose} <span className="text-muted-foreground">· {formatDateTime(r.requestedAt)}</span>
+                </span>
+                {/* Отклонённый запрос сумму уже вернул в доступный баланс: без пометки строка
+                    читалась бы как ожидающая выплаты, и одни деньги выглядели бы как двое. */}
+                <span
+                  className={
+                    r.status === 'rejected' ? 'font-medium text-muted-foreground line-through' : 'font-medium'
+                  }
+                >
+                  <Money amount={r.amount} />
+                </span>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {TRANSFER_STATUS_LABELS[r.status]}
+                {r.status === 'executed' && r.executedAt && ` · ${formatDateTime(r.executedAt)}`}
+                {r.status === 'rejected' && r.rejectionReason && ` · ${r.rejectionReason}`}
+              </div>
             </div>
           ))}
         </div>

@@ -7,8 +7,11 @@ import {
   buildPaymentRetryNotification,
   buildRevisionRequestedNotification,
   buildRevisionsRequestedNotification,
+  buildTransferExecutedNotification,
+  buildTransferRejectedNotification,
 } from './notifications'
 import { REVISION_FIELD_LABELS } from './orderSpecLabels'
+import { formatMoney } from './statusLabels'
 import { stepGuidance } from './stepGuidance'
 import type { Actor } from './types'
 
@@ -121,5 +124,39 @@ describe('buildRevisionsRequestedNotification', () => {
       expect(event.text).toContain(REVISION_FIELD_LABELS.amount)
       expect(event.text).toContain(REVISION_FIELD_LABELS.heightMm)
     }
+  })
+})
+
+describe('buildTransferExecutedNotification', () => {
+  it('адресовано мебельщику, называет сумму и не подменяет текст статуса', () => {
+    const events = buildTransferExecutedNotification('deal-1', 'in_production', 200_000)
+    expect(events.map((e) => e.recipientRole)).toEqual(['furniture_maker'])
+    expect(events[0].dealId).toBe('deal-1')
+    expect(events[0].read).toBe(false)
+    expect(events[0].text).toContain(formatMoney(200_000))
+    expect(events[0].text).not.toBe(stepGuidance.in_production?.furniture_maker?.title)
+  })
+
+  // Запрос на перевод живёт на любом статусе после оплаты, поэтому статус приходит извне:
+  // захардкоженный in_production врал бы в уведомлении на приёмке и на завершённой сделке.
+  it('сохраняет статус сделки, на котором перевод исполнен', () => {
+    expect(buildTransferExecutedNotification('deal-1', 'awaiting_acceptance', 1000)[0].status).toBe(
+      'awaiting_acceptance',
+    )
+  })
+})
+
+describe('buildTransferRejectedNotification', () => {
+  it('адресовано мебельщику и несёт причину отказа: без неё непонятно, что исправлять', () => {
+    const events = buildTransferRejectedNotification('deal-1', 'in_production', 200_000, 'реквизиты не совпадают')
+    expect(events.map((e) => e.recipientRole)).toEqual(['furniture_maker'])
+    expect(events[0].text).toContain('реквизиты не совпадают')
+    expect(events[0].text).toContain(formatMoney(200_000))
+  })
+
+  it('сохраняет статус сделки, на котором перевод отклонён', () => {
+    expect(
+      buildTransferRejectedNotification('deal-1', 'completed', 1000, 'причина')[0].status,
+    ).toBe('completed')
   })
 })

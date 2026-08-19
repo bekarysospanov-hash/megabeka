@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useDemoState } from '../store/DemoProvider'
 import { StatusBadge } from '../components/StatusBadge'
 import { CategoryTag } from '../components/CategoryTag'
+import { TransferRequestQueue } from '../components/TransferRequestQueue'
 import { Card } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { daysSinceLastChange, isDealStalled } from '../domain/attention'
@@ -29,6 +30,10 @@ export function OperatorDealsList() {
   return (
     <div className="grid gap-6">
       <h1 className="text-xl font-semibold tracking-tight">Все сделки</h1>
+
+      {/* Запросы на перевод стоят выше списка сделок: деньги мебельщика ждут действия
+          оператора, и в общем списке эта задача ничем себя не проявляет (FR-35). */}
+      <TransferRequestQueue />
 
       <Select value={filter} onValueChange={(v) => setFilter(v as DealStatus | 'all')}>
         <SelectTrigger className="w-fit min-w-48">

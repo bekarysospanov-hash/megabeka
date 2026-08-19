@@ -231,3 +231,45 @@ export function buildRevisionsRequestedNotification(dealId: string, fields: stri
     },
   ]
 }
+
+// Статус сделки передаётся аргументом, а не берётся константой: перевод запрашивают на любом
+// статусе после оплаты, и «in_production» врал бы в уведомлении на приёмке или после завершения.
+
+/** FR-35: оператор исполнил запрос — деньги ушли на счёт, мебельщик должен об этом узнать. */
+export function buildTransferExecutedNotification(
+  dealId: string,
+  status: DealStatus,
+  amount: number,
+): NotificationEvent[] {
+  return [
+    {
+      dealId,
+      status,
+      at: new Date().toISOString(),
+      read: false,
+      id: generateId(),
+      recipientRole: 'furniture_maker',
+      text: `Перевод ${formatMoney(amount)} исполнен — деньги отправлены на ваш счёт`,
+    },
+  ]
+}
+
+/** Отклонение возвращает сумму в доступный баланс, поэтому уведомление обязано нести причину. */
+export function buildTransferRejectedNotification(
+  dealId: string,
+  status: DealStatus,
+  amount: number,
+  reason: string,
+): NotificationEvent[] {
+  return [
+    {
+      dealId,
+      status,
+      at: new Date().toISOString(),
+      read: false,
+      id: generateId(),
+      recipientRole: 'furniture_maker',
+      text: `Запрос перевода на ${formatMoney(amount)} отклонён: «${reason}». Сумма снова доступна к запросу`,
+    },
+  ]
+}

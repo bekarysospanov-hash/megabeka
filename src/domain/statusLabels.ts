@@ -1,4 +1,10 @@
-import type { DealStatus } from './types'
+import type { DealStatus, TransferRequestStatus } from './types'
+
+export const TRANSFER_STATUS_LABELS: Record<TransferRequestStatus, string> = {
+  pending: 'В обработке',
+  executed: 'Исполнен',
+  rejected: 'Отклонён',
+}
 
 export const STATUS_LABELS: Record<DealStatus, string> = {
   draft: 'Черновик',
