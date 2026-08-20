@@ -365,6 +365,34 @@ export function markProductionDone(deal: Deal, milestones: Milestone[]): Deal {
   )
 }
 
+/**
+ * Статусы, из которых транш по этапу взять уже нельзя (см. ADVANCE_STATUSES в milestones.ts):
+ * сделка либо завершена нормально, либо закрыта актом. Ручной перевод сюда с невзятой долей
+ * запирает деньги мебельщика навсегда — обратного пути к ним нет ни у него, ни у оператора.
+ */
+const STATUSES_CLOSING_ADVANCE: DealStatus[] = ['act_signed', 'completed']
+
+/** То же правило для интерфейса: не предлагать оператору статус, который домен отклонит. */
+export function canSetStatusManually(target: DealStatus, milestones: Milestone[]): boolean {
+  return !(STATUSES_CLOSING_ADVANCE.includes(target) && firstUntakenMilestone(milestones) !== null)
+}
+
+/**
+ * Ручная смена статуса оператором — инструмент демонстрации, обходящий граф переходов сознательно.
+ * Единственное, чего он обходить не должен, — FR-19: закрытие сделки с нераскрытой долей.
+ * Спор и возврат под запрет не попадают: в споре доля берётся после решения арбитра, а при
+ * возврате она и причиталась клиенту.
+ */
+export function setStatusManually(deal: Deal, target: DealStatus, milestones: Milestone[]): Deal {
+  const untaken = firstUntakenMilestone(milestones)
+  if (untaken && STATUSES_CLOSING_ADVANCE.includes(target)) {
+    throw new Error(
+      `Сначала возьмите транш по этапу «${untaken.title}»: после закрытия сделки эта доля останется невыплаченной`,
+    )
+  }
+  return withStatus(deal, target)
+}
+
 export function signActByFurnitureMaker(deal: Deal, _code: string): Deal {
   assertStatus(deal, 'awaiting_acceptance')
   return withStatus(deal, 'act_signing')

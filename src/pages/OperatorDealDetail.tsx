@@ -6,6 +6,8 @@ import { RevisionDiffList } from '../components/RevisionDiffList'
 import { TransactionList } from '../components/TransactionList'
 import { DisputePanel } from '../components/DisputePanel'
 import { MilestoneList } from '../components/MilestoneList'
+import { canSetStatusManually } from '../domain/dealMachine'
+import { firstUntakenMilestone } from '../domain/milestones'
 import { ApprovalPanel } from '../components/ApprovalPanel'
 import { DisputeResolutionForm } from '../components/DisputeResolutionForm'
 import { MessageThread } from '../components/MessageThread'
@@ -45,6 +47,9 @@ export function OperatorDealDetail() {
   const { furnitureMakerVerification } = useDemoState()
   const { freezeDispute, resolveDispute, operatorSetStatus, addMessage } = useDemoActions()
   const [manualStatus, setManualStatus] = useState<DealStatus | ''>('')
+  // Правило — в домене; здесь только подсказка, чтобы «Применить» не молчала в ответ на клик.
+  const untakenMilestone = firstUntakenMilestone(milestones)
+  const manualStatusAllowed = !manualStatus || canSetStatusManually(manualStatus, milestones)
 
   if (!deal) return <p className="text-sm text-muted-foreground">Сделка не найдена.</p>
 
@@ -136,7 +141,7 @@ export function OperatorDealDetail() {
           </Select>
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="outline" disabled={!manualStatus}>
+              <Button variant="outline" disabled={!manualStatus || !manualStatusAllowed}>
                 Применить
               </Button>
             </AlertDialogTrigger>
@@ -162,6 +167,12 @@ export function OperatorDealDetail() {
             </AlertDialogContent>
           </AlertDialog>
         </div>
+        {!manualStatusAllowed && untakenMilestone && (
+          <p className="text-xs text-warning">
+            Этот статус закрывает сделку, а транш по этапу «{untakenMilestone.title}» не взят —
+            доля осталась бы невыплаченной. Сначала мебельщик берёт транш.
+          </p>
+        )}
       </section>
     </div>
   )

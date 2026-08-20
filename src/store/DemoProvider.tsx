@@ -16,6 +16,8 @@ import {
   createDeal as createDealFn,
   rejectApproval as rejectApprovalFn,
   requireApproval as requireApprovalFn,
+  canSetStatusManually,
+  setStatusManually as setStatusManuallyFn,
   freezeDispute as freezeDisputeFn,
   markProductionDone as markProductionDoneFn,
   onboardClient as onboardClientFn,
@@ -580,14 +582,11 @@ function reducer(state: DemoState, action: Action): DemoState {
     case 'operatorSetStatus': {
       const current = state.deals[action.dealId]
       if (current.status === action.status) return state
-      const deal: Deal = {
-        ...current,
-        status: action.status,
-        statusHistory: [
-          ...current.statusHistory,
-          { status: action.status, at: new Date().toISOString() },
-        ],
-      }
+      // Ручная смена статуса обходит граф переходов по замыслу, но не гейт FR-19: правило,
+      // какие статусы запрещены при невзятом транше, живёт в домене.
+      const milestones = milestonesOf(state, action.dealId)
+      if (!canSetStatusManually(action.status, milestones)) return state
+      const deal: Deal = setStatusManuallyFn(current, action.status, milestones)
       return {
         ...state,
         deals: { ...state.deals, [deal.id]: deal },

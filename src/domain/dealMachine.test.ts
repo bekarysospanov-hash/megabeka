@@ -6,6 +6,7 @@ import {
   createDeal,
   freezeDispute,
   markProductionDone,
+  setStatusManually,
   onboardClient,
   pay,
   rejectAct,
@@ -300,6 +301,42 @@ describe('markProductionDone', () => {
     const deal = toInProduction()
     const taken = takeMilestoneAdvance(buildMilestones(deal), 1, 'in_production', false)
     expect(markProductionDone(deal, taken).status).toBe('awaiting_acceptance')
+  })
+})
+
+describe('setStatusManually — ручная смена статуса оператором', () => {
+  // operatorSetStatus обходит граф переходов по замыслу: это инструмент оператора на демо.
+  // Но обойти FR-19 он не должен — иначе сделка закрывается с нераскрытой долей, а после
+  // «Завершена» транш взять уже нельзя, и деньги мебельщика запираются без адресата.
+  it('не переводит в «Завершена», пока по этапу не взят транш', () => {
+    const deal = toInProduction()
+    expect(() => setStatusManually(deal, 'completed', buildMilestones(deal))).toThrow(/транш/i)
+  })
+
+  it('не переводит в «Акт подписан» с невзятым траншем — из него транш тоже не взять', () => {
+    const deal = toInProduction()
+    expect(() => setStatusManually(deal, 'act_signed', buildMilestones(deal))).toThrow(/транш/i)
+  })
+
+  it('переводит в «Завершена», когда транши взяты', () => {
+    const deal = toInProduction()
+    const taken = takeMilestoneAdvance(buildMilestones(deal), 1, 'in_production', false)
+    expect(setStatusManually(deal, 'completed', taken).status).toBe('completed')
+  })
+
+  // Спор и возврат не запирают деньги: в споре доля ещё берётся после решения, при возврате
+  // она клиенту и причиталась. Ручной перевод туда остаётся свободным.
+  it('переводит в спор и в возврат при невзятом транше', () => {
+    const deal = toInProduction()
+    const ms = buildMilestones(deal)
+    expect(setStatusManually(deal, 'dispute_open', ms).status).toBe('dispute_open')
+    expect(setStatusManually(deal, 'cancelled_refunded', ms).status).toBe('cancelled_refunded')
+  })
+
+  it('пишет переход в историю статусов', () => {
+    const deal = toInProduction()
+    const moved = setStatusManually(deal, 'dispute_open', buildMilestones(deal))
+    expect(moved.statusHistory[moved.statusHistory.length - 1].status).toBe('dispute_open')
   })
 })
 
