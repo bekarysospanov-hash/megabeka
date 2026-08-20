@@ -112,22 +112,18 @@ export interface Deal {
 }
 
 /** Машина состояний этапа (PRD 7.4). «Выплачен» в прототипе не отдельный статус: факт выплаты несёт Transaction. */
-export type MilestoneStatus = 'planned' | 'declared' | 'confirmed'
+export type MilestoneStatus = 'planned' | 'confirmed'
 
 export interface Milestone {
   dealId: string
   orderNo: number
   title: string
   sharePercent: number
-  /** Ровно один истинный на сделку. Финальный этап закрывается приёмкой, а не заявлением */
+  /** Ровно один истинный на сделку. Финальный этап закрывается приёмкой, а не мебельщиком */
   isFinal: boolean
   status: MilestoneStatus
-  /** FR-13: не менее одной фотографии, иначе оператору нечего проверять */
-  photos: string[]
-  declaredAt: string | null
+  /** Когда мебельщик взял транш под этап; у финального — когда его закрыла приёмка */
   confirmedAt: string | null
-  /** FR-14: обязателен при отклонении */
-  rejectReason: string | null
 }
 
 export interface RevisionEntry {

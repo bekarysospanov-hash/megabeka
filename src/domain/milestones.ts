@@ -1,13 +1,12 @@
-import type { Deal, Milestone, Transaction } from './types'
+import type { Deal, DealStatus, Milestone, Transaction } from './types'
 
 /**
  * Этапы сделки (FR-03). В прототипе они выводятся из уже согласованной схемы траншей, а не
  * задаются отдельно: доли те же, что видит клиент в блоке «Деньги», — расхождение между
  * обещанной схемой и фактическими этапами было бы хуже, чем отсутствие гибкости.
  *
- * Последний этап всегда «Приёмка» (FR-03) и мебельщиком не заявляется: его закрывает подпись
- * клиента или истечение окна приёмки (7.4) — единственное исключение из правила «подтверждает
- * человек».
+ * Последний этап всегда «Приёмка» (FR-03) и мебельщиком не берётся: его закрывает подпись
+ * клиента или истечение окна приёмки (7.4).
  */
 export function buildMilestones(deal: Deal): Milestone[] {
   const milestones: Milestone[] = []
@@ -20,14 +19,11 @@ export function buildMilestones(deal: Deal): Milestone[] {
       sharePercent,
       isFinal,
       status: 'planned',
-      photos: [],
-      declaredAt: null,
       confirmedAt: null,
-      rejectReason: null,
     })
   }
 
-  push('Материалы закуплены', deal.prepaymentPercent)
+  push('Закуп материалов', deal.prepaymentPercent)
   push('Изделие изготовлено', deal.interimPercent)
   push('Приёмка заказа', deal.finalPercent, true)
   return milestones
@@ -40,9 +36,9 @@ export function milestoneAmount(deal: Deal, milestone: Milestone): number {
 }
 
 /**
- * Этап, который мебельщик может заявить прямо сейчас. Этапы подтверждаются по порядку
- * (FR-13): пока предыдущий не подтверждён, следующий недоступен — иначе деньги уходили бы
- * за работу, которую никто не проверял.
+ * Этап, транш по которому мебельщик может взять прямо сейчас. Этапы идут по порядку: пока
+ * предыдущий не взят, следующий недоступен — иначе всю сумму до приёмки можно было бы
+ * выбрать одним действием, минуя схему раскрытия, согласованную с клиентом.
  */
 export function nextClaimableMilestone(milestones: Milestone[]): Milestone | null {
   const ordered = [...milestones].sort((a, b) => a.orderNo - b.orderNo)
@@ -64,64 +60,68 @@ function find(milestones: Milestone[], orderNo: number): Milestone {
   return milestone
 }
 
-/** FR-13: мебельщик заявляет выполнение этапа, приложив не менее одной фотографии. */
-export function declareMilestone(
+/**
+ * Статусы, на которых транш под этап можно взять: работа идёт или сдаётся. Спор сюда не входит —
+ * в нём изделия либо нет, либо оно негодное, и деньги обязаны стоять. Терминальные статусы тоже:
+ * по завершённой сделке транши уже разошлись, по закрытой возвратом деньги ушли клиенту.
+ */
+const ADVANCE_STATUSES: DealStatus[] = ['in_production', 'remedy', 'awaiting_acceptance', 'act_signing']
+
+/** То же правило для интерфейса: кнопку не показываем там, где домен откажет. */
+export function canTakeMilestoneAdvance(dealStatus: DealStatus, frozen: boolean): boolean {
+  return !frozen && ADVANCE_STATUSES.includes(dealStatus)
+}
+
+/**
+ * FR-19: заявить готовность нельзя, пока по какому-то этапу не взят транш. Иначе сделка дойдёт
+ * до «Завершена» с невзятой долей, и деньги мебельщика останутся лежать на платформе без адресата.
+ */
+export function firstUntakenMilestone(milestones: Milestone[]): Milestone | null {
+  const ordered = [...milestones].sort((a, b) => a.orderNo - b.orderNo)
+  return ordered.find((m) => !m.isFinal && m.status !== 'confirmed') ?? null
+}
+
+/**
+ * Мебельщик берёт транш под этап. Ни фотографий, ни подтверждения оператором: в пилоте работают
+ * мебельщики, которым платформа доверяет, и контроль стоит не на ходе работ, а на движении денег —
+ * вывод транша оператор подтверждает в очереди запросов на перевод (FR-35).
+ *
+ * Почему транш раскрывается до работы, а не после: первый этап — закуп материалов, и деньги на
+ * него нужны заранее. Требование «сначала закупи, потом получи» заставляло мебельщика
+ * финансировать заказ из своего кармана, чего мелкие мастерские не могут (PRD 13.3, вопрос
+ * финансирования закупа). Договор (п. 2.3) ровно это и обещает: доля доступна сразу после оплаты.
+ */
+export function takeMilestoneAdvance(
   milestones: Milestone[],
   orderNo: number,
-  photos: string[],
+  dealStatus: DealStatus,
+  frozen: boolean,
 ): Milestone[] {
   const milestone = find(milestones, orderNo)
 
+  if (frozen) {
+    throw new Error('Сделка заморожена на время разбора: взять транш нельзя')
+  }
+  if (dealStatus === 'dispute_open') {
+    throw new Error('По сделке открыт спор: транши не раскрываются до решения арбитра')
+  }
+  if (!ADVANCE_STATUSES.includes(dealStatus)) {
+    throw new Error('Сделка закрыта: взять транш по ней нельзя')
+  }
   if (milestone.isFinal) {
-    throw new Error('Финальный этап не заявляется: его закрывает приёмка заказа клиентом')
+    throw new Error('Финальный этап не берётся траншем: его закрывает приёмка заказа клиентом')
   }
-  if (photos.length === 0) {
-    throw new Error('Приложите хотя бы одно фото: без них оператору нечего проверять')
-  }
+  // Повторное взятие раскрыло бы долю второй раз — это выдача одних денег дважды, а не повтор.
   if (milestone.status !== 'planned') {
-    throw new Error(`Этап уже отправлен на проверку или подтверждён`)
+    throw new Error('Транш по этому этапу уже взят')
   }
   if (nextClaimableMilestone(milestones)?.orderNo !== orderNo) {
-    throw new Error('Этапы заявляются по порядку: предыдущий ещё не подтверждён')
+    throw new Error('Этапы идут по порядку: транш по предыдущему ещё не взят')
   }
 
-  return replace(milestones, orderNo, {
-    status: 'declared',
-    photos,
-    declaredAt: new Date().toISOString(),
-    rejectReason: null,
-  })
-}
-
-/** FR-14: оператор подтверждает заявленный этап — создаётся задание на выплату транша. */
-export function confirmMilestone(milestones: Milestone[], orderNo: number): Milestone[] {
-  const milestone = find(milestones, orderNo)
-  if (milestone.status !== 'declared') {
-    throw new Error('Подтвердить можно только заявленный этап')
-  }
   return replace(milestones, orderNo, {
     status: 'confirmed',
     confirmedAt: new Date().toISOString(),
-  })
-}
-
-/** FR-14: отклонение обязательно сопровождается комментарием — иначе мебельщик не поймёт, что править. */
-export function rejectMilestone(
-  milestones: Milestone[],
-  orderNo: number,
-  reason: string,
-): Milestone[] {
-  const milestone = find(milestones, orderNo)
-  if (milestone.status !== 'declared') {
-    throw new Error('Отклонить можно только заявленный этап')
-  }
-  if (!reason.trim()) {
-    throw new Error('Укажите причину отклонения: без неё мебельщик не поймёт, что исправлять')
-  }
-  return replace(milestones, orderNo, {
-    status: 'planned',
-    rejectReason: reason.trim(),
-    declaredAt: null,
   })
 }
 
@@ -145,7 +145,7 @@ function milestoneTransactionType(milestone: Milestone): Transaction['type'] {
   return milestone.orderNo === 1 ? 'prepayment' : 'interim'
 }
 
-/** Транш, порождаемый подтверждением этапа (FR-14). */
+/** Транш, порождаемый взятием этапа мебельщиком. */
 export function buildMilestonePayout(deal: Deal, milestone: Milestone): Transaction {
   return {
     dealId: deal.id,

@@ -115,63 +115,26 @@ export function buildRevisionRequestedNotification(dealId: string, field: string
  * меняется, и клиент увидел бы дубль «изделие в производстве», из которого не понять, что
  * часть его денег только что ушла мебельщику.
  */
-export function buildMilestoneConfirmedNotification(
+/**
+ * Мебельщик взял транш под этап. Клиенту это событие показывается отдельно: статус сделки при
+ * взятии не меняется, а деньги двигаются — типовое уведомление по статусу это скрыло бы (FR-15).
+ * Оператору события нет: ход работ его не касается, движение денег он видит в очереди переводов.
+ */
+export function buildMilestoneTakenNotification(
   dealId: string,
   milestoneTitle: string,
   payoutAmount: number,
   heldAmount: number,
 ): NotificationEvent[] {
-  const at = new Date().toISOString()
-  const base = { dealId, status: 'in_production' as const, at, read: false }
   return [
     {
-      ...base,
+      dealId,
+      status: 'in_production' as const,
+      at: new Date().toISOString(),
+      read: false,
       id: generateId(),
       recipientRole: 'client',
-      text: `Этап «${milestoneTitle}» подтверждён: ${formatMoney(payoutAmount)} переведены производителю, под защитой остаётся ${formatMoney(heldAmount)}`,
-    },
-    {
-      ...base,
-      id: generateId(),
-      recipientRole: 'furniture_maker',
-      text: `Этап «${milestoneTitle}» подтверждён оператором — ${formatMoney(payoutAmount)} доступны к переводу`,
-    },
-  ]
-}
-
-/** FR-14: отклонение этапа с причиной — мебельщик должен понять, что переснять или исправить. */
-export function buildMilestoneRejectedNotification(
-  dealId: string,
-  milestoneTitle: string,
-  reason: string,
-): NotificationEvent[] {
-  return [
-    {
-      dealId,
-      status: 'in_production' as const,
-      at: new Date().toISOString(),
-      read: false,
-      id: generateId(),
-      recipientRole: 'furniture_maker',
-      text: `Этап «${milestoneTitle}» отклонён оператором: «${reason}»`,
-    },
-  ]
-}
-
-/** Заявление этапа: задача оператору на проверку (FR-13). */
-export function buildMilestoneDeclaredNotification(
-  dealId: string,
-  milestoneTitle: string,
-): NotificationEvent[] {
-  return [
-    {
-      dealId,
-      status: 'in_production' as const,
-      at: new Date().toISOString(),
-      read: false,
-      id: generateId(),
-      recipientRole: 'operator',
-      text: `Мебельщик заявил этап «${milestoneTitle}» — проверьте фото и подтвердите`,
+      text: `Этап «${milestoneTitle}»: ${formatMoney(payoutAmount)} раскрыты производителю, под защитой остаётся ${formatMoney(heldAmount)}`,
     },
   ]
 }

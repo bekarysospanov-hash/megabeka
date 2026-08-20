@@ -7,6 +7,7 @@ import {
   buildPaymentRetryNotification,
   buildRevisionRequestedNotification,
   buildRevisionsRequestedNotification,
+  buildMilestoneTakenNotification,
   buildTransferExecutedNotification,
   buildTransferRejectedNotification,
 } from './notifications'
@@ -158,5 +159,24 @@ describe('buildTransferRejectedNotification', () => {
     expect(
       buildTransferRejectedNotification('deal-1', 'completed', 1000, 'причина')[0].status,
     ).toBe('completed')
+  })
+})
+
+describe('buildMilestoneTakenNotification', () => {
+  // Взятие транша не меняет статус сделки, поэтому типовое уведомление по статусу его не покажет:
+  // клиент должен узнать, что деньги раскрыты, из отдельного события (FR-15).
+  it('уведомляет клиента о раскрытой сумме и остатке под защитой', () => {
+    const events = buildMilestoneTakenNotification('deal-1', 'Закуп материалов', 475_000, 500_000)
+    const client = events.find((e) => e.recipientRole === 'client')
+
+    expect(client).toBeDefined()
+    expect(client!.text).toContain('Закуп материалов')
+    expect(client!.text).toContain(formatMoney(475_000))
+    expect(client!.text).toContain(formatMoney(500_000))
+  })
+
+  it('оператору отдельного события нет: ход работ его не касается, деньги он увидит в очереди переводов', () => {
+    const events = buildMilestoneTakenNotification('deal-1', 'Закуп материалов', 1000, 1000)
+    expect(events.map((e) => e.recipientRole)).not.toContain('operator')
   })
 })

@@ -16,25 +16,18 @@ import {
   submitPayment,
 } from './dealMachine'
 import { DEFAULT_COMMISSION_PERCENT } from './dealLimits'
-import {
-  buildMilestonePayout,
-  closeFinalMilestone,
-  confirmMilestone,
-  declareMilestone,
-} from './milestones'
+import { buildMilestonePayout, closeFinalMilestone, takeMilestoneAdvance } from './milestones'
 import type { CreateDealInput, Deal, DisputeLog, Milestone, RevisionEntry, Transaction } from './types'
 
 /**
- * Демо-данные: проводит первый этап через заявление и подтверждение, как это сделали бы
- * мебельщик и оператор. Транш появляется только здесь — сама оплата клиентом денег
- * мебельщику больше не раскрывает (FR-14).
+ * Демо-данные: мебельщик берёт транш под первый этап, как сделал бы это сам. Транш появляется
+ * только здесь — оплата клиентом денег мебельщику не раскрывает, их открывает его действие.
  */
 function settleFirstMilestone(deal: Deal, milestones: Milestone[]) {
-  const declared = declareMilestone(milestones, 1, ['demo-photo'])
-  const confirmed = confirmMilestone(declared, 1)
+  const taken = takeMilestoneAdvance(milestones, 1, 'in_production', false)
   return {
-    milestones: confirmed,
-    transaction: buildMilestonePayout(deal, confirmed[0]),
+    milestones: taken,
+    transaction: buildMilestonePayout(deal, taken[0]),
   }
 }
 

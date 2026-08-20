@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildMilestones,
-  confirmMilestone,
-  declareMilestone,
-  rejectMilestone,
+  canTakeMilestoneAdvance,
+  firstUntakenMilestone,
   milestoneAmount,
   nextClaimableMilestone,
+  takeMilestoneAdvance,
 } from './milestones'
 import { createDeal } from './dealMachine'
-import type { CreateDealInput, Deal, Milestone } from './types'
+import type { CreateDealInput, Deal } from './types'
 
 const twoPart: CreateDealInput = {
   furnitureMakerId: 'fm-1',
@@ -61,80 +61,116 @@ describe('milestoneAmount', () => {
   })
 })
 
-describe('nextClaimableMilestone (FR-13)', () => {
-  it('первым заявляется этап с наименьшим номером', () => {
+describe('nextClaimableMilestone', () => {
+  it('первым берётся этап с наименьшим номером', () => {
     const ms = buildMilestones(dealWith(threePart))
     expect(nextClaimableMilestone(ms)?.orderNo).toBe(1)
   })
 
-  it('следующий этап доступен только после подтверждения предыдущего', () => {
+  it('следующий этап доступен только после того, как взят предыдущий', () => {
     const ms = buildMilestones(dealWith(threePart))
-    const declared = declareMilestone(ms, 1, ['photo.jpg'])
-    expect(nextClaimableMilestone(declared)).toBeNull()
-
-    const confirmed = confirmMilestone(declared, 1)
-    expect(nextClaimableMilestone(confirmed)?.orderNo).toBe(2)
+    expect(nextClaimableMilestone(takeMilestoneAdvance(ms, 1, 'in_production', false))?.orderNo).toBe(2)
   })
 
-  it('финальный этап мебельщиком не заявляется — его закрывает приёмка', () => {
+  it('финальный этап мебельщиком не берётся — его закрывает приёмка', () => {
     const ms = buildMilestones(dealWith(twoPart))
-    const confirmed = confirmMilestone(declareMilestone(ms, 1, ['p.jpg']), 1)
-    expect(nextClaimableMilestone(confirmed)).toBeNull()
+    expect(nextClaimableMilestone(takeMilestoneAdvance(ms, 1, 'in_production', false))).toBeNull()
   })
 })
 
-describe('declareMilestone (FR-13)', () => {
-  it('заявление без фотографий отклоняется: арбитражу нечего сверять', () => {
+describe('takeMilestoneAdvance — транш под этап', () => {
+  // Модель пилота: мебельщик ведёт сделку сам, оператор контролирует не работу, а движение
+  // денег — вывод транша он подтверждает в очереди запросов. Поэтому фото и подтверждение
+  // этапа из модели убраны: транш нужен ДО закупа материалов, а не после него.
+  it('переводит нефинальный этап в confirmed и ставит время', () => {
+    const [first] = takeMilestoneAdvance(buildMilestones(dealWith(threePart)), 1, 'in_production', false)
+    expect(first.status).toBe('confirmed')
+    expect(first.confirmedAt).not.toBeNull()
+  })
+
+  // Повторное взятие раскрыло бы долю второй раз — то есть выдало бы одни деньги дважды.
+  it('повторное взятие того же этапа отклоняется', () => {
+    const taken = takeMilestoneAdvance(buildMilestones(dealWith(threePart)), 1, 'in_production', false)
+    expect(() => takeMilestoneAdvance(taken, 1, 'in_production', false)).toThrow(/взят|уже/i)
+  })
+
+  it('нельзя взять транш через порядок', () => {
     const ms = buildMilestones(dealWith(threePart))
-    expect(() => declareMilestone(ms, 1, [])).toThrow(/фото/i)
+    expect(() => takeMilestoneAdvance(ms, 2, 'in_production', false)).toThrow(/порядк/i)
   })
 
-  it('нельзя заявить этап через порядок', () => {
-    const ms = buildMilestones(dealWith(threePart))
-    expect(() => declareMilestone(ms, 2, ['p.jpg'])).toThrow(/порядк/i)
-  })
-
-  it('нельзя заявить уже заявленный этап повторно', () => {
-    const declared = declareMilestone(buildMilestones(dealWith(threePart)), 1, ['p.jpg'])
-    expect(() => declareMilestone(declared, 1, ['p.jpg'])).toThrow()
-  })
-})
-
-describe('confirmMilestone и rejectMilestone (FR-14)', () => {
-  it('подтверждение переводит этап в confirmed', () => {
-    const declared = declareMilestone(buildMilestones(dealWith(threePart)), 1, ['p.jpg'])
-    expect(confirmMilestone(declared, 1)[0].status).toBe('confirmed')
-  })
-
-  it('отклонение возвращает этап в planned и хранит причину', () => {
-    const declared = declareMilestone(buildMilestones(dealWith(threePart)), 1, ['p.jpg'])
-    const rejected = rejectMilestone(declared, 1, 'на фото не видно кромки')
-
-    expect(rejected[0].status).toBe('planned')
-    expect(rejected[0].rejectReason).toBe('на фото не видно кромки')
-  })
-
-  it('отклонение без комментария не сохраняется', () => {
-    const declared = declareMilestone(buildMilestones(dealWith(threePart)), 1, ['p.jpg'])
-    expect(() => rejectMilestone(declared, 1, '   ')).toThrow(/причин|комментар/i)
-  })
-
-  it('подтвердить можно только заявленный этап', () => {
-    const ms = buildMilestones(dealWith(threePart))
-    expect(() => confirmMilestone(ms, 1)).toThrow()
-  })
-
-  it('повторное заявление после отклонения разрешено', () => {
-    const declared = declareMilestone(buildMilestones(dealWith(threePart)), 1, ['p.jpg'])
-    const rejected = rejectMilestone(declared, 1, 'переснимите')
-    expect(declareMilestone(rejected, 1, ['better.jpg'])[0].status).toBe('declared')
-  })
-})
-
-describe('финальный этап (7.4)', () => {
-  it('закрывается приёмкой, а не заявлением мебельщика', () => {
-    const ms: Milestone[] = buildMilestones(dealWith(twoPart))
+  it('финальный этап взять нельзя: его закрывает приёмка', () => {
+    const ms = buildMilestones(dealWith(twoPart))
     const final = ms.find((m) => m.isFinal)!
-    expect(() => declareMilestone(ms, final.orderNo, ['p.jpg'])).toThrow(/приёмк/i)
+    expect(() => takeMilestoneAdvance(ms, final.orderNo, 'in_production', false)).toThrow(/приёмк/i)
+  })
+
+  it('не задевает остальные этапы', () => {
+    const ms = buildMilestones(dealWith(threePart))
+    const taken = takeMilestoneAdvance(ms, 1, 'in_production', false)
+    expect(taken.slice(1)).toEqual(ms.slice(1))
+  })
+})
+
+describe('takeMilestoneAdvance — гейты по состоянию сделки', () => {
+  // Спор означает «изделия нет или оно негодное». Раньше путь был закрыт устройством процесса:
+  // раскрыть транш мог только оператор, и во время спора он бы этого не сделал. Теперь долю
+  // раскрывает сам мебельщик, поэтому запрет обязан жить в домене.
+  it('в открытом споре транш взять нельзя', () => {
+    const ms = buildMilestones(dealWith(threePart))
+    expect(() => takeMilestoneAdvance(ms, 1, 'dispute_open', false)).toThrow(/спор/i)
+  })
+
+  it('на замороженной сделке транш взять нельзя', () => {
+    const ms = buildMilestones(dealWith(threePart))
+    expect(() => takeMilestoneAdvance(ms, 1, 'in_production', true)).toThrow(/заморож/i)
+  })
+
+  // Деньги по такой сделке уже вернули клиенту: раскрытие создало бы транзакцию и уведомление
+  // о выплате по сделке, где выплачивать нечего.
+  it('на закрытой возвратом сделке транш взять нельзя', () => {
+    const ms = buildMilestones(dealWith(threePart))
+    expect(() => takeMilestoneAdvance(ms, 1, 'cancelled_refunded', false)).toThrow(/возврат|закрыт/i)
+  })
+
+  it('на завершённой сделке транш взять нельзя', () => {
+    const ms = buildMilestones(dealWith(threePart))
+    expect(() => takeMilestoneAdvance(ms, 1, 'completed', false)).toThrow(/завершен|завершён|закрыт/i)
+  })
+
+  it('разрешено на статусах, где работа идёт или сдаётся', () => {
+    const ms = buildMilestones(dealWith(threePart))
+    for (const status of ['in_production', 'remedy', 'awaiting_acceptance', 'act_signing'] as const) {
+      expect(takeMilestoneAdvance(ms, 1, status, false)[0].status).toBe('confirmed')
+    }
+  })
+
+  it('canTakeMilestoneAdvance отвечает тем же правилом, что и сам переход', () => {
+    expect(canTakeMilestoneAdvance('in_production', false)).toBe(true)
+    expect(canTakeMilestoneAdvance('in_production', true)).toBe(false)
+    expect(canTakeMilestoneAdvance('dispute_open', false)).toBe(false)
+    expect(canTakeMilestoneAdvance('cancelled_refunded', false)).toBe(false)
+  })
+})
+
+describe('firstUntakenMilestone (FR-19)', () => {
+  // FR-19: заявить готовность нельзя, пока есть невзятый этап. Иначе сделка дойдёт до
+  // «Завершена» с невзятой долей, и деньги мебельщика останутся на платформе.
+  it('возвращает первый невзятый нефинальный этап', () => {
+    const ms = buildMilestones(dealWith(threePart))
+    expect(firstUntakenMilestone(ms)?.orderNo).toBe(1)
+    expect(firstUntakenMilestone(takeMilestoneAdvance(ms, 1, 'in_production', false))?.orderNo).toBe(2)
+  })
+
+  it('возвращает null, когда все нефинальные этапы взяты', () => {
+    let ms = buildMilestones(dealWith(threePart))
+    ms = takeMilestoneAdvance(ms, 1, 'in_production', false)
+    ms = takeMilestoneAdvance(ms, 2, 'in_production', false)
+    expect(firstUntakenMilestone(ms)).toBeNull()
+  })
+
+  it('финальный этап невзятым не считается: его закрывает приёмка', () => {
+    const ms = takeMilestoneAdvance(buildMilestones(dealWith(twoPart)), 1, 'in_production', false)
+    expect(firstUntakenMilestone(ms)).toBeNull()
   })
 })

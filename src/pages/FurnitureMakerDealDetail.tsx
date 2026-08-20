@@ -16,6 +16,7 @@ import { StepGuidanceCard } from '../components/StepGuidanceCard'
 import { DealProgressBar } from '../components/DealProgressBar'
 import { DealBalance } from '../components/DealBalance'
 import { MilestoneList } from '../components/MilestoneList'
+import { firstUntakenMilestone } from '../domain/milestones'
 import { DealSpecForm } from '../components/DealSpecForm'
 import { BackLink } from '../components/BackLink'
 import { Button } from '@/components/ui/button'
@@ -31,6 +32,9 @@ export function FurnitureMakerDealDetail() {
   const { id } = useParams<{ id: string }>()
   const deal = useDeal(id)
   const { revisions, transactions, disputes, attachments, transferRequests, milestones } = useDealHistory(id)
+  // FR-19: готовность не заявляется, пока по этапу не взят транш — иначе доля осталась бы
+  // невыплаченной на завершённой сделке. Домен это запрещает, здесь — объяснение для человека.
+  const untakenMilestone = firstUntakenMilestone(milestones)
   const { payoutRequisites, deals, transactions: allTransactions } = useDemoState()
   const {
     sendToClient,
@@ -276,9 +280,19 @@ export function FurnitureMakerDealDetail() {
               . После этого заявите готовность повторно — у клиента снова будет 3 рабочих дня на приёмку.
             </p>
           </div>
-          <Button className="w-fit" onClick={() => markProductionDone(deal.id)}>
+          <Button
+            className="w-fit"
+            disabled={untakenMilestone !== null}
+            onClick={() => markProductionDone(deal.id)}
+          >
             Отметить готово / передать на приёмку
           </Button>
+          {untakenMilestone && (
+            <p className="text-xs text-warning">
+              Сначала возьмите транш по этапу «{untakenMilestone.title}»: после приёмки эта доля
+              останется невыплаченной.
+            </p>
+          )}
         </div>
       )}
 
@@ -291,11 +305,21 @@ export function FurnitureMakerDealDetail() {
             </div>
           )}
           {/* Кнопка «Запросить доступность транша» убрана вместе с payInterim: промежуточные
-              деньги теперь раскрывает подтверждение соответствующего этапа (FR-14). Оставить
-              оба пути значило бы выплатить один и тот же транш дважды. */}
-          <Button className="w-fit" onClick={() => markProductionDone(deal.id)}>
+              деньги раскрывает взятие соответствующего этапа. Оставить оба пути значило бы
+              выплатить один и тот же транш дважды. */}
+          <Button
+            className="w-fit"
+            disabled={untakenMilestone !== null}
+            onClick={() => markProductionDone(deal.id)}
+          >
             Отметить готово / передать на приёмку
           </Button>
+          {untakenMilestone && (
+            <p className="text-xs text-warning">
+              Сначала возьмите транш по этапу «{untakenMilestone.title}»: после приёмки эта доля
+              останется невыплаченной.
+            </p>
+          )}
         </div>
       )}
 
@@ -355,8 +379,8 @@ export function FurnitureMakerDealDetail() {
         </section>
       )}
 
-      {/* Этапы — ключевой ответ на вопрос «когда придут деньги»: транш раскрывается только
-          после подтверждения этапа оператором, поэтому список стоит выше блока денег. */}
+      {/* Этапы — ключевой ответ на вопрос «когда придут деньги»: мебельщик берёт транш под этап
+          сам, поэтому список стоит выше блока денег. */}
       <MilestoneList deal={deal} milestones={milestones} role="furniture_maker" />
 
       {/* Зона C — деньги. Отдельного таймлайна выплат здесь нет сознательно: график

@@ -37,9 +37,8 @@ import { validatePaymentSplit } from '../domain/dealLimits'
 import {
   buildMilestonePayout as buildMilestonePayoutFn,
   closeFinalMilestone as closeFinalMilestoneFn,
-  confirmMilestone as confirmMilestoneFn,
-  declareMilestone as declareMilestoneFn,
-  rejectMilestone as rejectMilestoneFn,
+  firstUntakenMilestone,
+  takeMilestoneAdvance as takeMilestoneAdvanceFn,
 } from '../domain/milestones'
 import type { DisputeResolution } from '../domain/disputeResolution'
 import { calculateAvailableBalance } from '../domain/balance'
@@ -53,9 +52,7 @@ import {
   buildActRejectedNotification,
   buildClientAcceptedNotification,
   buildDealUpdatedNotification,
-  buildMilestoneConfirmedNotification,
-  buildMilestoneDeclaredNotification,
-  buildMilestoneRejectedNotification,
+  buildMilestoneTakenNotification,
   buildNotificationEvents,
   buildPaymentRetryNotification,
   buildRevisionRequestedNotification,
@@ -168,8 +165,8 @@ function isValidDemoState(value: unknown): value is DemoState {
   )
   if (!transferRequestsValid) return false
 
-  // У оплаченной сделки этапы обязаны существовать: транш теперь появляется только через
-  // подтверждение этапа, и сделка без них заперла бы деньги мебельщика навсегда.
+  // У оплаченной сделки этапы обязаны существовать: транш появляется только через взятие
+  // этапа мебельщиком, и сделка без них заперла бы его деньги навсегда.
   const milestoneDealIds = new Set((v.milestones as { dealId?: string }[]).map((m) => m.dealId))
   const isPaid = (d: Record<string, unknown>) =>
     Array.isArray(d.statusHistory) &&
@@ -239,9 +236,7 @@ type Action =
   | { type: 'submitPayment'; dealId: string; method: PaymentMethod }
   | { type: 'pay'; dealId: string }
   | { type: 'markProductionDone'; dealId: string }
-  | { type: 'declareMilestone'; dealId: string; orderNo: number; photos: string[] }
-  | { type: 'confirmMilestone'; dealId: string; orderNo: number }
-  | { type: 'rejectMilestone'; dealId: string; orderNo: number; reason: string }
+  | { type: 'takeMilestoneAdvance'; dealId: string; orderNo: number }
   | { type: 'signActByFurnitureMaker'; dealId: string; code: string }
   | { type: 'signAct'; dealId: string; code: string; remarks?: string | null }
   | { type: 'autoAcceptDeal'; dealId: string }
@@ -426,24 +421,21 @@ function reducer(state: DemoState, action: Action): DemoState {
         notifications: notifyForTransition(state, before, deal),
       }
     }
-    case 'declareMilestone': {
+    case 'takeMilestoneAdvance': {
       const deal = state.deals[action.dealId]
-      const updated = declareMilestoneFn(milestonesOf(state, action.dealId), action.orderNo, action.photos)
-      const declared = updated.find((m) => m.orderNo === action.orderNo)!
-      return {
-        ...state,
-        milestones: [...state.milestones.filter((m) => m.dealId !== deal.id), ...updated],
-        notifications: [
-          ...state.notifications,
-          ...buildMilestoneDeclaredNotification(deal.id, declared.title),
-        ],
-      }
-    }
-    case 'confirmMilestone': {
-      const deal = state.deals[action.dealId]
-      const updated = confirmMilestoneFn(milestonesOf(state, action.dealId), action.orderNo)
-      const confirmed = updated.find((m) => m.orderNo === action.orderNo)!
-      const payout = buildMilestonePayoutFn(deal, confirmed)
+      const milestone = milestonesOf(state, action.dealId).find((m) => m.orderNo === action.orderNo)
+      // Двойной клик не должен раскрыть долю дважды: домен на это бросает, а здесь тихий выход,
+      // чтобы повторное нажатие не роняло интерфейс и не порождало вторую транзакцию.
+      if (!deal || !milestone || milestone.status !== 'planned') return state
+
+      const updated = takeMilestoneAdvanceFn(
+        milestonesOf(state, action.dealId),
+        action.orderNo,
+        deal.status,
+        deal.frozen,
+      )
+      const taken = updated.find((m) => m.orderNo === action.orderNo)!
+      const payout = buildMilestonePayoutFn(deal, taken)
       const paidOutBefore = state.transactions
         .filter((t) => t.dealId === deal.id)
         .reduce((sum, t) => sum + t.amount, 0)
@@ -451,30 +443,22 @@ function reducer(state: DemoState, action: Action): DemoState {
       return {
         ...state,
         milestones: [...state.milestones.filter((m) => m.dealId !== deal.id), ...updated],
-        // Подтверждение этапа — момент, когда деньги становятся доступны мебельщику (FR-14).
+        // Взятие транша — момент, когда деньги становятся доступны мебельщику к запросу перевода.
         transactions: [...state.transactions, payout],
-        // FR-15: клиент видит название этапа, сумму и остаток под защитой, а не типовое
-        // уведомление по статусу, который при подтверждении этапа не меняется.
+        // FR-15: клиент видит, что деньги раскрыты, название этапа и остаток под защитой.
+        // Статус сделки при этом не меняется, типовое уведомление по статусу этого не покажет.
         notifications: [
           ...state.notifications,
-          ...buildMilestoneConfirmedNotification(deal.id, confirmed.title, payout.amount, heldAfter),
-        ],
-      }
-    }
-    case 'rejectMilestone': {
-      const deal = state.deals[action.dealId]
-      const updated = rejectMilestoneFn(milestonesOf(state, action.dealId), action.orderNo, action.reason)
-      const rejected = updated.find((m) => m.orderNo === action.orderNo)!
-      return {
-        ...state,
-        milestones: [...state.milestones.filter((m) => m.dealId !== deal.id), ...updated],
-        notifications: [
-          ...state.notifications,
-          ...buildMilestoneRejectedNotification(deal.id, rejected.title, action.reason),
+          ...buildMilestoneTakenNotification(deal.id, taken.title, payout.amount, heldAfter),
         ],
       }
     }
     case 'markProductionDone': {
+      // FR-19: пока по этапу не взят транш, готовность заявлять нельзя — иначе сделка дойдёт до
+      // «Завершена» с невзятой долей, и деньги мебельщика останутся на платформе без адресата.
+      // Правило живёт в домене (firstUntakenMilestone), здесь только применяется.
+      if (firstUntakenMilestone(milestonesOf(state, action.dealId))) return state
+
       const deal = markProductionDoneFn(state.deals[action.dealId])
       return {
         ...state,
@@ -860,18 +844,8 @@ export function useDemoActions() {
       (dealId: string) => dispatch({ type: 'markProductionDone', dealId }),
       [dispatch],
     ),
-    declareMilestone: useCallback(
-      (dealId: string, orderNo: number, photos: string[]) =>
-        dispatch({ type: 'declareMilestone', dealId, orderNo, photos }),
-      [dispatch],
-    ),
-    confirmMilestone: useCallback(
-      (dealId: string, orderNo: number) => dispatch({ type: 'confirmMilestone', dealId, orderNo }),
-      [dispatch],
-    ),
-    rejectMilestone: useCallback(
-      (dealId: string, orderNo: number, reason: string) =>
-        dispatch({ type: 'rejectMilestone', dealId, orderNo, reason }),
+    takeMilestoneAdvance: useCallback(
+      (dealId: string, orderNo: number) => dispatch({ type: 'takeMilestoneAdvance', dealId, orderNo }),
       [dispatch],
     ),
     signActByFurnitureMaker: useCallback(
