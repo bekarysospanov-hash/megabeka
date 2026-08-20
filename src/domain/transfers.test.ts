@@ -19,6 +19,7 @@ import {
   signByFurnitureMaker,
   submitPayment,
 } from './dealMachine'
+import { buildMilestones, takeMilestoneAdvance } from './milestones'
 import type { TransferRequest } from './types'
 
 function request(overrides: Partial<TransferRequest> = {}): TransferRequest {
@@ -230,7 +231,11 @@ describe('стык с разрешением спора', () => {
     deal = signByFurnitureMaker(deal, '1234')
     deal = signByClientSms(deal, '1234')
     deal = submitPayment(deal, 'card')
-    deal = markProductionDone(pay(deal).deal)
+    const paidDeal = pay(deal).deal
+    deal = markProductionDone(
+      paidDeal,
+      takeMilestoneAdvance(buildMilestones(paidDeal), 1, 'in_production', false),
+    )
     return callOperator(deal, 'client', 'скол на фасаде').deal
   }
 

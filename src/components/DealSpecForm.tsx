@@ -284,17 +284,19 @@ export function DealSpecForm({
       </FormSection>
 
       <FormSection step={4} title="Размеры" hint="Примерно, если известно">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div className="grid gap-1.5">
+        {/* Дорожки задаёт строка, ячейки их наследуют через subgrid: подписи разной длины
+            переносятся по-разному, и без общих дорожек поля встают на разной высоте. */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:grid-rows-[auto_auto_auto]">
+          <div className="grid gap-1.5 sm:row-span-3 sm:grid-rows-subgrid">
             <Label htmlFor="dim-length">Длина (по стенам), мм</Label>
             <Input id="dim-length" type="number" min={0} value={lengthMm} onChange={(e) => setLengthMm(e.target.value)} />
           </div>
-          <div className="grid gap-1.5">
+          <div className="grid gap-1.5 sm:row-span-3 sm:grid-rows-subgrid">
             <Label htmlFor="dim-height">Высота, мм</Label>
             <Input id="dim-height" type="number" min={0} value={heightMm} onChange={(e) => setHeightMm(e.target.value)} />
             <p className="text-xs text-muted-foreground">От пола до потолка в помещении</p>
           </div>
-          <div className="grid gap-1.5">
+          <div className="grid gap-1.5 sm:row-span-3 sm:grid-rows-subgrid">
             <Label htmlFor="dim-depth">Глубина, мм</Label>
             <Input id="dim-depth" type="number" min={0} value={depthMm} onChange={(e) => setDepthMm(e.target.value)} />
           </div>
@@ -454,8 +456,8 @@ export function DealSpecForm({
             )}
           </div>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="grid gap-1.5">
+        <div className="grid gap-3 sm:grid-cols-2 sm:grid-rows-[auto_auto_auto]">
+          <div className="grid gap-1.5 sm:row-span-3 sm:grid-rows-subgrid">
             <Label htmlFor="deal-amount">Сумма, ₸</Label>
             <Input
               id="deal-amount"
@@ -480,7 +482,7 @@ export function DealSpecForm({
               </p>
             )}
           </div>
-          <div className="grid gap-1.5">
+          <div className="grid gap-1.5 sm:row-span-3 sm:grid-rows-subgrid">
             <Label htmlFor="deal-production-days">Срок изготовления, дней</Label>
             <Input
               id="deal-production-days"

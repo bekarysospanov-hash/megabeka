@@ -13,6 +13,7 @@ import {
   submitPayment,
 } from './dealMachine'
 import { availableResolutions, remainderForCraftsman } from './disputeResolution'
+import { buildMilestones, takeMilestoneAdvance } from './milestones'
 import type { CreateDealInput, Deal, Transaction } from './types'
 
 const baseInput: CreateDealInput = {
@@ -36,7 +37,11 @@ function paidDeal(): Deal {
 }
 
 function disputedFrom(status: 'in_production' | 'awaiting_acceptance'): Deal {
-  const deal = status === 'in_production' ? paidDeal() : markProductionDone(paidDeal())
+  const base = paidDeal()
+  const deal =
+    status === 'in_production'
+      ? base
+      : markProductionDone(base, takeMilestoneAdvance(buildMilestones(base), 1, 'in_production', false))
   return callOperator(deal, 'client', 'причина').deal
 }
 

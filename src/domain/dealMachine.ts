@@ -1,7 +1,7 @@
 import { calculateAcceptanceDeadline, isAcceptanceWindowExpired } from './acceptanceWindow'
 import { exceedsDealAmountLimit } from './dealLimits'
 import { availableResolutions, remainderForCraftsman, type DisputeResolution } from './disputeResolution'
-import { buildMilestones } from './milestones'
+import { buildMilestones, firstUntakenMilestone } from './milestones'
 import { generateId } from './id'
 import type {
   Actor,
@@ -347,10 +347,17 @@ export function pay(deal: Deal): { deal: Deal; milestones: Milestone[] } {
 
 // Заявление готовности запускает окно приёмки (FR-19): с этого момента у клиента есть
 // 3 рабочих дня по календарю РК, после которых заказ считается принятым (FR-22).
-export function markProductionDone(deal: Deal): Deal {
+export function markProductionDone(deal: Deal, milestones: Milestone[]): Deal {
   // Из «Устранения» готовность заявляется повторно (PRD 7.3): окно приёмки запускается заново
   // на полные 3 рабочих дня, потому что клиент смотрит уже переделанное изделие.
   assertStatusOneOf(deal, ['in_production', 'remedy'])
+
+  // FR-19: сделка не уходит к приёмке с нераскрытой долей. Иначе она дойдёт до «Завершена»,
+  // финальный транш выплатится, а доля за этап останется на платформе без адресата.
+  const untaken = firstUntakenMilestone(milestones)
+  if (untaken) {
+    throw new Error(`Сначала возьмите транш по этапу «${untaken.title}»: без этого доля останется нераскрытой`)
+  }
   const declaredAt = new Date().toISOString()
   return withStatus(
     { ...deal, acceptanceDeadline: calculateAcceptanceDeadline(declaredAt) },

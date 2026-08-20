@@ -77,7 +77,7 @@ function buildHappyScenario(): DemoScenario {
   deal = submitPayment(deal, 'card')
   const paid = pay(deal)
   const stage1 = settleFirstMilestone(paid.deal, paid.milestones)
-  deal = markProductionDone(paid.deal)
+  deal = markProductionDone(paid.deal, stage1.milestones)
   deal = signActByFurnitureMaker(deal, '9999')
   const final = signAct(deal, '9999')
 
@@ -110,7 +110,7 @@ function buildRevisionsScenario(): DemoScenario {
   deal = submitPayment(deal, 'card')
   const paid = pay(deal)
   const stage1 = settleFirstMilestone(paid.deal, paid.milestones)
-  deal = markProductionDone(paid.deal)
+  deal = markProductionDone(paid.deal, stage1.milestones)
   deal = signActByFurnitureMaker(deal, '9999')
   const final = signAct(deal, '9999')
 
@@ -138,7 +138,7 @@ function buildDisputeScenario(): DemoScenario {
   deal = freezeDispute(opened.deal)
   deal = resolveDispute(deal, { kind: 'rejected', newDeadline: '2026-09-15' }).deal
 
-  deal = markProductionDone(deal)
+  deal = markProductionDone(deal, stage1.milestones)
   deal = signActByFurnitureMaker(deal, '9999')
   const final = signAct(deal, '9999')
 

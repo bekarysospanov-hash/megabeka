@@ -37,7 +37,6 @@ import { validatePaymentSplit } from '../domain/dealLimits'
 import {
   buildMilestonePayout as buildMilestonePayoutFn,
   closeFinalMilestone as closeFinalMilestoneFn,
-  firstUntakenMilestone,
   takeMilestoneAdvance as takeMilestoneAdvanceFn,
 } from '../domain/milestones'
 import type { DisputeResolution } from '../domain/disputeResolution'
@@ -454,12 +453,12 @@ function reducer(state: DemoState, action: Action): DemoState {
       }
     }
     case 'markProductionDone': {
-      // FR-19: пока по этапу не взят транш, готовность заявлять нельзя — иначе сделка дойдёт до
-      // «Завершена» с невзятой долей, и деньги мебельщика останутся на платформе без адресата.
-      // Правило живёт в домене (firstUntakenMilestone), здесь только применяется.
-      if (firstUntakenMilestone(milestonesOf(state, action.dealId))) return state
-
-      const deal = markProductionDoneFn(state.deals[action.dealId])
+      // Гейт FR-19 (пока по этапу не взят транш, готовность не заявляется) живёт в домене:
+      // здесь только передаются этапы, на которых он основан.
+      const deal = markProductionDoneFn(
+        state.deals[action.dealId],
+        milestonesOf(state, action.dealId),
+      )
       return {
         ...state,
         deals: { ...state.deals, [deal.id]: deal },

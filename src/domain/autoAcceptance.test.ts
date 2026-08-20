@@ -14,6 +14,7 @@ import {
   sendToClient,
   submitPayment,
 } from './dealMachine'
+import { buildMilestones, takeMilestoneAdvance } from './milestones'
 import type { CreateDealInput, Deal } from './types'
 
 const baseInput: CreateDealInput = {
@@ -35,7 +36,7 @@ function dealInAcceptanceWindow(): Deal {
   deal = signByClientSms(deal, '1234')
   deal = submitPayment(deal, 'card')
   deal = pay(deal).deal
-  return markProductionDone(deal)
+  return markProductionDone(deal, takeMilestoneAdvance(buildMilestones(deal), 1, 'in_production', false))
 }
 
 describe('окно приёмки запускается заявлением готовности (FR-19, FR-20)', () => {

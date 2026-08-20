@@ -22,6 +22,7 @@ import {
   updateDealSpec,
 } from './dealMachine'
 import { seedScenarios } from './seedScenarios'
+import { buildMilestones, takeMilestoneAdvance } from './milestones'
 import type { CreateDealInput, Deal } from './types'
 
 const baseInput: CreateDealInput = {
@@ -58,7 +59,8 @@ function toInProduction(): Deal {
 }
 
 function toAwaitingAcceptance(): Deal {
-  return markProductionDone(toInProduction())
+  const deal = toInProduction()
+  return markProductionDone(deal, takeMilestoneAdvance(buildMilestones(deal), 1, 'in_production', false))
 }
 
 function toActSigning(): Deal {
@@ -284,6 +286,20 @@ describe('markProductionDone', () => {
   it('переводит in_production в awaiting_acceptance', () => {
     const deal = toAwaitingAcceptance()
     expect(deal.status).toBe('awaiting_acceptance')
+  })
+
+  // FR-19: иначе сделка уходит к приёмке с нераскрытой долей, и деньги мебельщика остаются
+  // на платформе без адресата — забрать их после закрытия сделки уже нечем.
+  it('отклоняет готовность, пока по этапу не взят транш', () => {
+    const deal = toInProduction()
+    const milestones = buildMilestones(deal)
+    expect(() => markProductionDone(deal, milestones)).toThrow(/транш/i)
+  })
+
+  it('разрешает готовность, когда транши всех этапов взяты', () => {
+    const deal = toInProduction()
+    const taken = takeMilestoneAdvance(buildMilestones(deal), 1, 'in_production', false)
+    expect(markProductionDone(deal, taken).status).toBe('awaiting_acceptance')
   })
 })
 
