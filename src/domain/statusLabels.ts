@@ -75,7 +75,7 @@ function isCurrentYear(date: Date): boolean {
   return date.getFullYear() === new Date().getFullYear()
 }
 
-/** Полная дата для договора, акта и сертификата гарантии — год не опускается никогда. */
+/** Полная дата для договора и акта приёма-передачи — год не опускается никогда. */
 export function formatDocumentDate(iso: string): string {
   return new Intl.DateTimeFormat('ru-RU', {
     day: 'numeric',

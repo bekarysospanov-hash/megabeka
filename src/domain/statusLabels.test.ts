@@ -33,7 +33,7 @@ describe('formatDate (интерфейс)', () => {
   })
 })
 
-describe('formatDocumentDate (договор, акт, сертификат)', () => {
+describe('formatDocumentDate (договор, акт)', () => {
   it('всегда несёт год, даже в текущем году', () => {
     const result = formatDocumentDate(new Date(thisYear, 7, 16).toISOString())
     expect(result).toContain(String(thisYear))

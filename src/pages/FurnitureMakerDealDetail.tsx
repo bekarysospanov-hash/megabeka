@@ -251,7 +251,7 @@ export function FurnitureMakerDealDetail() {
       {(deal.status === 'contract_signed' || deal.status === 'payment_pending') && (
         <div className="grid gap-3">
           <p className="text-sm text-muted-foreground">Договор подписан обеими сторонами, ждём оплату от клиента.</p>
-          <GuaranteeBanner perspective="furniture_maker" />
+          <GuaranteeBanner perspective="furniture_maker" issuedAt={deal.guaranteeIssuedAt} />
           <div className="flex flex-wrap gap-2">
             <CancelDealDialog dealId={deal.id} actor="furniture_maker" triggerLabel="Отменить сделку" />
           </div>

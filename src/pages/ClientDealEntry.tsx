@@ -70,7 +70,7 @@ function ClientOnboarding({ deal }: { deal: Deal }) {
           <div className="mt-1 font-semibold">{deal.contactName || 'Имя не указано'}</div>
           <div className="text-sm text-muted-foreground">{deal.contactPhone || 'Телефон не указан'}</div>
         </div>
-        <GuaranteeBanner perspective="client" />
+        <GuaranteeBanner perspective="client" issuedAt={deal.guaranteeIssuedAt} />
         <div className="flex flex-wrap gap-2">
           <Button onClick={() => onboardClient(deal.id, name.trim(), phone.trim())}>Да, это я</Button>
           <Button variant="outline" onClick={() => setEditing(true)}>
@@ -105,7 +105,7 @@ function ClientOnboarding({ deal }: { deal: Deal }) {
           />
         </div>
       </div>
-      <GuaranteeBanner perspective="client" />
+      <GuaranteeBanner perspective="client" issuedAt={deal.guaranteeIssuedAt} />
       <Button
         disabled={name.trim().length < 2 || phone.trim().length < 5}
         onClick={() => onboardClient(deal.id, name.trim(), phone.trim())}
